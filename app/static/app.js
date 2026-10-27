@@ -56,6 +56,16 @@ async function boot() {
   $("corridor-help").textContent =
     `You are paid into a ${state.config.receive_region} business account holding ${state.config.receive_currency}.`;
 
+  // The template cannot answer a question, so an enabled box would be a lie:
+  // you would type something, press Explain, and get a generic paragraph back.
+  if (!state.config.explanation.model_configured) {
+    const question = $("explain-question");
+    question.disabled = true;
+    question.placeholder = "Questions need a model key — this build explains from a fixed template";
+    question.title =
+      "Set OPENROUTER_API_KEY to ask questions. The template still explains every fee line.";
+  }
+
   syncAmountPrefix();
   $("corridor").addEventListener("change", syncAmountPrefix);
   $("quote-form").addEventListener("submit", onSubmit);

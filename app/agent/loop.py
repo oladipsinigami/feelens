@@ -105,13 +105,22 @@ class ExplanationAgent:
             )
 
         if not self.model_ready:
-            return self._from_template(quote, note="no model configured")
+            # A question with no model is not a request that failed, it is one
+            # that was never attempted. Saying so beats returning a generic
+            # explanation that reads as an answer to what was asked.
+            note = "no model configured"
+            if question and question.strip():
+                note = "no model configured; the question was not answered"
+            return self._from_template(quote, note=note)
 
         start = len(self._tools.calls)
         try:
             return self._run_model(quote, amount, corridor, payment, question, start)
         except LLMUnavailable as exc:
-            return self._from_template(quote, note=f"model unavailable: {exc}", start=start)
+            note = f"model unavailable: {exc}"
+            if question and question.strip():
+                note = f"{note}; the question was not answered"
+            return self._from_template(quote, note=note, start=start)
 
     # -- model path -------------------------------------------------------
 

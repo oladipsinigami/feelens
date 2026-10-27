@@ -84,6 +84,22 @@ def test_explain_still_answers_with_no_key(offline):
     assert body["explanation"]["checks"]["ok"] is True
 
 
+def test_a_question_with_no_key_is_reported_as_unanswered(offline):
+    """The page offers a question box. Without a model it cannot answer one.
+
+    Returning the generic template with no note would read as an answer to what
+    was asked, which is the kind of quiet lie the rest of this repo avoids.
+    """
+    body = post(offline, "/api/explain", question="why is this so high?").json()
+
+    assert body["explanation"]["source"] == "template"
+    assert "not answered" in body["explanation"]["note"]
+
+
+def test_no_note_about_questions_when_none_was_asked(offline):
+    assert "not answered" not in post(offline, "/api/explain").json()["explanation"]["note"]
+
+
 def test_the_prose_and_the_table_describe_the_same_invoice(offline):
     quote = post(offline, "/api/quote").json()
     explain = post(offline, "/api/explain").json()
