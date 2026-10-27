@@ -1,0 +1,45 @@
+name: tests
+
+# The same command the deploy notes tell a human to run, on the same Python the
+# service builds with. It exists because "189 passing" in a README is a claim,
+# and a green check next to the commit is evidence.
+#
+# No network is needed: every test reads a frozen fixture, so this is
+# deterministic and does not depend on PayPal, the ECB mirror, or a model key.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Install
+        run: pip install -r requirements-dev.txt
+
+      - name: Test
+        run: python -m pytest -q
+
+      - name: Boot without a model key and check the endpoints a judge will touch
+        run: |
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8098 &
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8098/api/health > /dev/null && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8098/api/health
+          curl -fsS -o /dev/null -w "page %{http_code}\n" http://127.0.0.1:8098/
+          curl -fsS -X POST http://127.0.0.1:8098/api/quote \
+            -H 'content-type: application/json' \
+            -d '{"amount":"5000.00","corridor":"EUR","payment":"invoice_paypal"}' \
+            | python -c "import json,sys; b=json.load(sys.stdin)['current']; print('quote', b['total_fees'], b['net_received'])"
