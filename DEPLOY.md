@@ -31,15 +31,16 @@ PayPal API. Adding them to the host would be a secret with nothing consuming it.
 
 ## Verifying the deployment
 
-`/api/health` is the honest answer to "is this demo trustworthy right now":
+`/api/health` is the honest answer to "is this demo trustworthy right now".
+A sample response, as of this writing:
 
 ```json
 {
   "status": "ok",
   "version": "0.2.0",
   "fee_retrieved_date": "2026-10-26",
-  "fx_snapshot_date": "2026-10-23",
-  "fx_age_days": 4,
+  "fx_snapshot_date": "2026-10-27",
+  "fx_age_days": 0,
   "fx_stale": false,
   "model_configured": false,
   "tier": "modeled"
@@ -76,6 +77,8 @@ python scripts/refresh_fx.py             # write the snapshot
 ```
 
 then update `tests/fixtures/fx_snapshot.json` **separately and deliberately**,
-recomputing the expected numbers. The tests read the frozen fixture on purpose:
-if they read the live file, every legitimate refresh would break the suite and
-the tempting repair would be to edit the expected values until it passed.
+recomputing the expected numbers. The pricing tests read the frozen fixture on
+purpose: if they read the live file, every legitimate refresh would break the
+suite and the tempting repair would be to edit the expected values until it
+passed. (One test opens the shipped snapshot to confirm it parses; it asserts no
+figures.)
