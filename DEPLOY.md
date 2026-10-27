@@ -29,6 +29,19 @@ PayPal API. Adding them to the host would be a secret with nothing consuming it.
 4. Wait for the first build. The health check is `GET /api/health`; Render will
    not route traffic until it returns 200.
 
+## What was verified before pushing
+
+The pinned set was installed into a clean CPython 3.13.14 environment, which is
+what Render builds, and the resolver moved the transitive dependencies off the
+versions this repo is developed against (pydantic 2.12.5 → 2.14.1, starlette
+1.3.1 → 1.10.0). On that combination: **189 tests pass**, the app boots on
+`0.0.0.0` with no model key, all fifteen corridor × product quotes return 200,
+and `/api/explain` falls back to the template with a clean guardrail verdict.
+
+That is the failure mode this check exists to catch — a pin on the direct
+dependencies does not pin their dependencies, so "it worked on my machine" is
+not evidence about the build machine.
+
 ## Verifying the deployment
 
 `/api/health` is the honest answer to "is this demo trustworthy right now".
