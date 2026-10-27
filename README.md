@@ -1,5 +1,7 @@
 # FeeLens
 
+[![tests](https://github.com/oladipsinigami/feelens/actions/workflows/tests.yml/badge.svg)](https://github.com/oladipsinigami/feelens/actions/workflows/tests.yml)
+
 **What PayPal takes before the money reaches you.**
 
 A pre-payment cost auditor for cross-border freelancers. A deterministic fee
