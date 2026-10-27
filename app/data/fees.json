@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "retrieved_date": "2026-10-26",
+  "default_region": "US",
+  "notes": "Rates verified against PayPal's US merchant fee page (Last Updated: October 1, 2026) for a US business account receiving commercial transactions. Percentages apply to the invoice currency amount. Fixed fees are denominated in the currency RECEIVED, per PayPal's 'based on currency received' wording. Two distinct FX spreads are modelled separately because they have different triggers and different rates: 4.00% when the payer funds a different currency (borne by the payer) and 3.00% for all other conversions (borne by the receiver).",
+  "rules": [
+    {
+      "id": "commercial_goods_services_transfer",
+      "label": "Send/Receive Money for Goods and Services",
+      "type": "percent",
+      "rate_pct": "2.99",
+      "fixed": {},
+      "applies_to": {
+        "regions": [
+          "US"
+        ],
+        "account_types": [
+          "business"
+        ],
+        "payment_methods": [
+          "goods_services_transfer"
+        ],
+        "transaction_types": [
+          "goods_services"
+        ]
+      },
+      "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
+      "verified": true,
+      "notes": "No fixed fee on this rate. This is the rate that applies when a freelancer is paid for goods and services directly rather than through website checkout."
+    },
+    {
+      "id": "commercial_paypal_checkout",
+      "label": "PayPal Checkout",
+      "type": "percent_plus_fixed",
+      "rate_pct": "3.49",
+      "fixed": {
+        "USD": "0.49"
+      },
+      "applies_to": {
+        "regions": [
+          "US"
+        ],
+        "account_types": [
+          "business"
+        ],
+        "payment_methods": [
+          "paypal_checkout"
+        ],
+        "transaction_types": [
+          "goods_services"
+        ]
+      },
+      "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
+      "verified": true,
+      "notes": "Applies to website checkout. Higher rate, but carries a fixed fee, so the crossover against the 2.99% rate depends on invoice size."
+    },
+    {
+      "id": "invoice_checkout",
+      "label": "PayPal Invoicing - paid from a PayPal account",
+      "type": "percent_plus_fixed",
+      "rate_pct": "3.49",
+      "fixed": {
+        "USD": "0.49",
+        "EUR": "0.39",
+        "GBP": "0.39",
+        "AUD": "0.59",
+        "PHP": "25.00"
+      },
+      "applies_to": {
+        "regions": [
+          "US"
+        ],
+        "account_types": [
+          "business"
+        ],
+        "payment_methods": [
+          "paypal_checkout"
+        ],
+        "transaction_types": [
+          "invoice"
+        ]
+      },
+      "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
+      "verified": true,
+      "notes": "PayPal Invoicing Transaction Rates: 'PayPal Checkout, Pay with Venmo, or PayPal Guest Checkout'. Separate table from Commercial Transaction Rates, and higher than a direct send. INR is absent from the invoicing fixed-fee table, so an INR invoice raises rather than charging zero."
+    },
+    {
+      "id": "invoice_card",
+      "label": "PayPal Invoicing - paid by card",
+      "type": "percent_plus_fixed",
+      "rate_pct": "2.99",
+      "fixed": {
+        "USD": "0.49",
+        "EUR": "0.39",
+        "GBP": "0.39",
+        "AUD": "0.59",
+        "PHP": "25.00"
+      },
+      "applies_to": {
+        "regions": [
+          "US"
+        ],
+        "account_types": [
+          "business"
+        ],
+        "payment_methods": [
+          "card"
+        ],
+        "transaction_types": [
+          "invoice"
+        ]
+      },
+      "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
+      "verified": true,
+      "notes": "PayPal Invoicing Transaction Rates: 'Standard Credit and Debit Card Payments, Apple Pay, or other third-party wallets'. Same percentage as a direct send but WITH a fixed fee, so reusing the direct rate understates by exactly that fixed fee. Not modelled: Pay Later (4.99%) and Pay by Bank ACH (1%, capped at 10 USD) - the cap needs a fee type the engine does not have, and ACH is not offered to cross-border payers."
+    },
+    {
+      "id": "intl_surcharge_us",
+      "label": "International transaction surcharge",
+      "type": "percent",
+      "rate_pct": "1.50",
+      "fixed": {},
+      "applies_to": {
+        "regions": [
+          "US"
+        ],
+        "conditions": [
+          "cross_border"
+        ]
+      },
+      "source_url": "https://www.paypalobjects.com/marketing/ua/pdf/US/us-merchant-fees-01-october-2026.pdf",
+      "verified": true,
+      "notes": "US additional percentage-based fee for receiving international commercial transactions. Non-US regions differ (UK is 1.29% EEA / 1.99% all other markets), which is why region is part of rule scope."
+    },
+    {
+      "id": "fx_spread_payer_other_currency",
+      "label": "FX spread - payer funds in another currency",
+      "type": "percent",
+      "rate_pct": "4.00",
+      "fixed": {},
+      "applies_to": {
+        "regions": [
+          "US"
+        ],
+        "conditions": [
+          "payer_currency_differs_from_invoice"
+        ]
+      },
+      "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
+      "verified": true,
+      "notes": "PayPal: 'Paying for goods or services in a currency other than the currency the goods or services are listed in.' Charged to the payer, so it is reported separately and never deducted from the receiver's net.",
+      "borne_by": "payer"
+    },
+    {
+      "id": "fx_spread_balance_conversion",
+      "label": "FX spread - balance conversion on receipt",
+      "type": "percent",
+      "rate_pct": "3.00",
+      "fixed": {},
+      "applies_to": {
+        "regions": [
+          "US"
+        ],
+        "conditions": [
+          "receive_currency_differs_from_invoice"
+        ]
+      },
+      "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
+      "verified": true,
+      "notes": "PayPal: 'All other transactions' conversion spread, 3.00%. This is the one a US receiver holding USD pays when a client invoices in EUR, and the only FX cost changing the invoice currency removes.",
+      "borne_by": "receiver"
+    }
+  ]
+}

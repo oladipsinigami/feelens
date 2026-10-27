@@ -1,0 +1,42 @@
+{
+  "_meta": {
+    "source": "documented response shape from the PayPal Orders v2 capture reference",
+    "recorded": "2026-10-26",
+    "synthetic": true,
+    "note": "Values are round numbers chosen to exercise the parser, not a real transaction. Same-currency capture: PayPal omits receivable_amount and exchange_rate."
+  },
+  "id": "5O190127TN364715T",
+  "status": "COMPLETED",
+  "payment_source": {
+    "paypal": {
+      "name": { "given_name": "John", "surname": "Doe" },
+      "email_address": "customer@example.com",
+      "account_id": "QYR5Z8XDVJNXQ"
+    }
+  },
+  "purchase_units": [
+    {
+      "reference_id": "feelens-fixture",
+      "payments": {
+        "captures": [
+          {
+            "id": "3C679366HH908993F",
+            "status": "COMPLETED",
+            "amount": { "currency_code": "USD", "value": "5000.00" },
+            "final_capture": true,
+            "seller_protection": { "status": "ELIGIBLE" },
+            "seller_receivable_breakdown": {
+              "gross_amount": { "currency_code": "USD", "value": "5000.00" },
+              "paypal_fee": { "currency_code": "USD", "value": "250.00" },
+              "net_amount": { "currency_code": "USD", "value": "4750.00" }
+            },
+            "create_time": "2026-10-26T09:00:00Z",
+            "update_time": "2026-10-26T09:00:00Z"
+          }
+        ]
+      }
+    }
+  ],
+  "create_time": "2026-10-26T08:59:00Z",
+  "update_time": "2026-10-26T09:00:00Z"
+}

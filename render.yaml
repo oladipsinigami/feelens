@@ -1,0 +1,31 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# One free web service. No database, no background worker, no cron: the fee
+# engine is stateless and the FX snapshot is a file in the repo, so there is
+# nothing to persist and nothing to keep warm except the process.
+#
+# The PayPal credentials are deliberately absent. They are only used by
+# `scripts/check_sandbox.py`, which is run by hand; the web app never touches
+# the PayPal API. Putting them on the server would be a secret with no consumer.
+#
+# OPENROUTER_API_KEY uses `sync: false`, which means Render prompts for the
+# value in the dashboard and never reads it from this file. A key in a committed
+# YAML file is a key in a git history.
+
+services:
+  - type: web
+    name: feelens
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13"
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: "nvidia/nemotron-3-ultra-550b-a55b:free"
+      - key: LLM_FALLBACK_MODEL
+        value: "qwen/qwen3.8-27b:free"

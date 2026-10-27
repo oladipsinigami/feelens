@@ -1,0 +1,81 @@
+# Deploying FeeLens
+
+One free Render web service. No database, no queue, no cron. The fee engine is
+stateless and the exchange-rate snapshot is a file in the repo, so the only
+thing that has to stay alive is the process.
+
+## What the service needs
+
+| Environment variable | Required | Why |
+| --- | --- | --- |
+| `PYTHON_VERSION` | yes | Render builds 3.8–3.13; this repo is developed on 3.14, so the version is pinned rather than inherited. |
+| `OPENROUTER_API_KEY` | no | Without it every explanation is the deterministic template. The page is fully functional either way; `/api/health` says which mode is live. |
+| `LLM_MODEL` | no | Primary model. Defaults to the free Nemotron build. |
+| `LLM_FALLBACK_MODEL` | no | Tried when the primary is rate-limited, which on a free tier is normal. |
+
+The PayPal credentials are **not** on the server. They are used only by
+`scripts/check_sandbox.py`, which runs by hand; the web app never calls the
+PayPal API. Adding them to the host would be a secret with nothing consuming it.
+
+## Steps
+
+1. Push this repository to GitHub. `render.yaml` is already at the root, so
+   Render reads the build command, start command and health check from it.
+2. In Render: **New → Blueprint**, pick the repo, apply. It creates one free web
+   service named `feelens`.
+3. Render prompts for `OPENROUTER_API_KEY` because the blueprint declares it
+   with `sync: false`. Leave it blank to ship the template-only build, or paste
+   the key to enable the model. It is never read from the YAML file.
+4. Wait for the first build. The health check is `GET /api/health`; Render will
+   not route traffic until it returns 200.
+
+## Verifying the deployment
+
+`/api/health` is the honest answer to "is this demo trustworthy right now":
+
+```json
+{
+  "status": "ok",
+  "version": "0.2.0",
+  "fee_retrieved_date": "2026-10-26",
+  "fx_snapshot_date": "2026-10-23",
+  "fx_age_days": 4,
+  "fx_stale": false,
+  "model_configured": false,
+  "tier": "modeled"
+}
+```
+
+`fx_stale: true` means the exchange-rate snapshot has crossed the four-day
+threshold and the converted figures are drifting from reality. `model_configured:
+false` means every explanation on the page is the template — which is fine, and
+which the page says out loud rather than implying otherwise.
+
+## Two things that will bite on a free tier
+
+**Cold starts.** Free instances sleep after 15 minutes of inactivity and take
+roughly 30–60 seconds to wake. A judge clicking the Devpost link may see a
+browser timeout rather than the page. Either open the URL yourself a minute
+before demoing, or point a free uptime monitor (UptimeRobot, cron-job.org) at
+`/api/health` every 10 minutes. Ping the health endpoint, not `/` — it is cheap
+and it is the same signal Render uses.
+
+**`/api/explain` costs a model call.** There is no authentication and no rate
+limit, because there is nothing to protect but a free-tier quota: an abusive
+caller burns rate limit, not money, and every failure degrades to the template.
+If the app is ever pointed at a paid model, that assumption stops holding and
+the endpoint needs a limit before the key is set.
+
+## Refreshing the rates before a demo
+
+The snapshot is dated and the app is designed to admit it. To refresh:
+
+```bash
+python scripts/refresh_fx.py --dry-run   # show every rate movement, write nothing
+python scripts/refresh_fx.py             # write the snapshot
+```
+
+then update `tests/fixtures/fx_snapshot.json` **separately and deliberately**,
+recomputing the expected numbers. The tests read the frozen fixture on purpose:
+if they read the live file, every legitimate refresh would break the suite and
+the tempting repair would be to edit the expected values until it passed.

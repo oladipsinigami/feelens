@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FeeLens — what PayPal takes before you get paid</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="masthead">
+    <div class="wrap">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">FeeLens</span>
+      </div>
+      <p class="tagline">What PayPal takes before the money reaches you.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <form id="quote-form" class="card form" novalidate>
+      <div class="field">
+        <label for="amount">Invoice amount</label>
+        <div class="amount-row">
+          <span class="amount-prefix" id="amount-prefix" aria-hidden="true">€</span>
+          <input
+            id="amount"
+            name="amount"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            value="5000.00"
+            aria-describedby="amount-help"
+          />
+        </div>
+        <p class="help" id="amount-help">The amount you are billing, in your client's currency.</p>
+      </div>
+
+      <div class="field">
+        <label for="corridor">Where is your client?</label>
+        <select id="corridor" name="corridor"></select>
+        <p class="help" id="corridor-help">You are paid into a US business account holding USD.</p>
+      </div>
+
+      <fieldset class="field">
+        <legend>How does the money arrive?</legend>
+        <div class="options" id="payment-options"></div>
+      </fieldset>
+
+      <button type="submit" class="primary" id="submit">Calculate</button>
+      <p class="form-error" id="form-error" role="alert" hidden></p>
+    </form>
+
+    <section id="results" hidden aria-live="polite">
+      <div class="tier-bar">
+        <span class="tier-chip" id="tier-chip">modeled</span>
+        <span class="tier-note">
+          Calculated from PayPal's published fee schedule. Not a PayPal quote.
+        </span>
+      </div>
+
+      <div class="card headline">
+        <p class="headline-label">You keep</p>
+        <p class="headline-value" id="net-received">—</p>
+        <p class="headline-sub" id="headline-sub">—</p>
+        <dl class="headline-facts">
+          <div><dt>Invoice</dt><dd id="fact-invoice">—</dd></div>
+          <div><dt>PayPal takes</dt><dd id="fact-fees">—</dd></div>
+          <div><dt>Effective rate</dt><dd id="fact-rate">—</dd></div>
+        </dl>
+      </div>
+
+      <div class="card">
+        <h2>Where it goes</h2>
+        <table class="breakdown">
+          <thead>
+            <tr>
+              <th scope="col">Fee</th>
+              <th scope="col" class="num">Percent</th>
+              <th scope="col" class="num">Fixed</th>
+              <th scope="col" class="src">Source</th>
+            </tr>
+          </thead>
+          <tbody id="breakdown-body"></tbody>
+        </table>
+        <p class="fx-note" id="fx-note"></p>
+      </div>
+
+      <div class="card payer-card" id="payer-card" hidden>
+        <h2>Charged to your client, not to you</h2>
+        <p class="muted">
+          These are currency-conversion costs PayPal applies to the payer. They are
+          shown so you can see them, and deliberately excluded from your total.
+        </p>
+        <table class="breakdown">
+          <tbody id="payer-body"></tbody>
+        </table>
+      </div>
+
+      <div class="card savings" id="savings-card" hidden>
+        <h2 id="savings-title">A cheaper route</h2>
+        <p class="savings-value" id="savings-value"></p>
+        <p class="savings-caveat" id="savings-caveat"></p>
+      </div>
+
+      <div class="card explain">
+        <div class="explain-head">
+          <h2>In plain language</h2>
+          <span class="tier-chip" id="explain-source" hidden></span>
+        </div>
+        <div class="explain-ask">
+          <input
+            id="explain-question"
+            type="text"
+            autocomplete="off"
+            placeholder="Optional: ask a question, e.g. why is this so high?"
+            aria-label="Optional question about this quote"
+          />
+          <button type="button" class="secondary" id="explain-button">Explain</button>
+        </div>
+        <p class="explain-text" id="explain-text" aria-live="polite"></p>
+        <ul class="explain-caveats" id="explain-caveats" hidden></ul>
+        <p class="explain-checks" id="explain-checks"></p>
+        <details class="details" id="explain-trace-wrap" hidden>
+          <summary>How this explanation was built</summary>
+          <ul id="explain-trace"></ul>
+        </details>
+      </div>
+
+      <details class="card details">
+        <summary>What this model assumes</summary>
+        <ul id="assumptions"></ul>
+      </details>
+
+      <details class="card details">
+        <summary>Routes considered and rejected</summary>
+        <ul id="rejected"></ul>
+      </details>
+
+      <p class="disclaimer" id="disclaimer"></p>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p>
+      Fee rates: PayPal US merchant fees, last checked <span id="fee-date">—</span>.
+      Exchange rates: European Central Bank.
+    </p>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

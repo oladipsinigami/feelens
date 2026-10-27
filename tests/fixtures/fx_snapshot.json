@@ -1,0 +1,19 @@
+{
+  "retrieved_date": "2026-10-02",
+  "base": "USD",
+  "source": "European Central Bank euro foreign exchange reference rates, retrieved via api.frankfurter.app",
+  "source_urls": [
+    "https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html",
+    "https://api.frankfurter.app/latest?from=EUR&to=USD,GBP,AUD,INR,PHP"
+  ],
+  "verified": true,
+  "notes": "ECB publishes on TARGET working days only, so on weekends and TARGET holidays the last published rate stands. This snapshot is dated 2026-10-02 (Friday) and is therefore stale as of 2026-10-05 (Monday). The UI must show this date rather than implying a live rate.",
+  "rates_to_usd": {
+    "USD": "1.000000",
+    "EUR": "1.122500",
+    "GBP": "1.320076",
+    "AUD": "0.693929",
+    "INR": "0.010382",
+    "PHP": "0.015975"
+  }
+}

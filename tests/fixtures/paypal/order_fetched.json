@@ -1,0 +1,50 @@
+{
+  "id": "5RN04644GN2069813",
+  "intent": "CAPTURE",
+  "status": "CREATED",
+  "purchase_units": [
+    {
+      "reference_id": "feelens-fixture",
+      "amount": {
+        "currency_code": "EUR",
+        "value": "5000.00",
+        "breakdown": {}
+      },
+      "payee": {
+        "email_address": "sb-dvtmo53562254@business.example.com",
+        "merchant_id": "MM2BALZ4FBW4S",
+        "display_data": {
+          "brand_name": "FeeLens"
+        }
+      },
+      "description": "FeeLens sandbox calibration"
+    }
+  ],
+  "create_time": "2026-10-26T16:13:46Z",
+  "links": [
+    {
+      "href": "https://api.sandbox.paypal.com/v2/checkout/orders/5RN04644GN2069813",
+      "rel": "self",
+      "method": "GET"
+    },
+    {
+      "href": "https://www.sandbox.paypal.com/checkoutnow?token=5RN04644GN2069813",
+      "rel": "approve",
+      "method": "GET"
+    },
+    {
+      "href": "https://api.sandbox.paypal.com/v2/checkout/orders/5RN04644GN2069813",
+      "rel": "update",
+      "method": "PATCH"
+    },
+    {
+      "href": "https://api.sandbox.paypal.com/v2/checkout/orders/5RN04644GN2069813/capture",
+      "rel": "capture",
+      "method": "POST"
+    }
+  ],
+  "_meta": {
+    "source": "recorded from a live sandbox GET order call",
+    "recorded": "2026-10-26"
+  }
+}

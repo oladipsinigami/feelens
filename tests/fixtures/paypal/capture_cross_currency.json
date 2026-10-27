@@ -1,0 +1,48 @@
+{
+  "_meta": {
+    "source": "documented response shape from the PayPal Orders v2 capture reference",
+    "recorded": "2026-10-26",
+    "synthetic": true,
+    "note": "Values are round numbers chosen to exercise the cross-currency branch, not a real transaction. PayPal returns receivable_amount and exchange_rate only when the transaction currency differs from the receiving currency."
+  },
+  "id": "9AB12345CD678901E",
+  "status": "COMPLETED",
+  "payment_source": {
+    "paypal": {
+      "name": { "given_name": "Anna", "surname": "Schmidt" },
+      "email_address": "buyer-de@example.com",
+      "account_id": "QYR5Z8XDVJNXQ"
+    }
+  },
+  "purchase_units": [
+    {
+      "reference_id": "feelens-fixture",
+      "payments": {
+        "captures": [
+          {
+            "id": "7XY12345ZW678901Q",
+            "status": "COMPLETED",
+            "amount": { "currency_code": "EUR", "value": "5000.00" },
+            "final_capture": true,
+            "seller_protection": { "status": "ELIGIBLE" },
+            "seller_receivable_breakdown": {
+              "gross_amount": { "currency_code": "EUR", "value": "5000.00" },
+              "paypal_fee": { "currency_code": "EUR", "value": "250.00" },
+              "net_amount": { "currency_code": "EUR", "value": "4750.00" },
+              "receivable_amount": { "currency_code": "USD", "value": "5225.00" },
+              "exchange_rate": {
+                "source_currency": "EUR",
+                "target_currency": "USD",
+                "value": "1.100000"
+              }
+            },
+            "create_time": "2026-10-26T09:00:00Z",
+            "update_time": "2026-10-26T09:00:00Z"
+          }
+        ]
+      }
+    }
+  ],
+  "create_time": "2026-10-26T08:59:00Z",
+  "update_time": "2026-10-26T09:00:00Z"
+}

@@ -1,0 +1,14 @@
+# Runtime dependencies, pinned.
+#
+# Pinned because a deployment that installs "whatever fastapi is current" is a
+# deployment whose behaviour can change without a commit. Transitive
+# dependencies (pydantic, starlette) are left to the resolver — pinning those by
+# hand is how you get an unsatisfiable tree six months later.
+#
+# Development-only packages live in requirements-dev.txt and are not installed
+# on the server.
+
+fastapi==0.138.2
+uvicorn==0.49.0
+httpx==0.28.1
+python-dotenv==1.0.1
