@@ -1,5 +1,5 @@
 {
-  "retrieved_date": "2026-10-23",
+  "retrieved_date": "2026-10-27",
   "base": "USD",
   "source": "European Central Bank euro foreign exchange reference rates, retrieved via api.frankfurter.dev (an ECB-sourced mirror)",
   "source_urls": [
@@ -7,13 +7,13 @@
     "https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD,GBP,AUD,INR,PHP"
   ],
   "verified": true,
-  "notes": "ECB publishes on TARGET working days only, so on weekends and TARGET holidays the last published rate stands. This snapshot is dated 2026-10-23 (Friday) and was read on 2026-10-26 (Monday), which is the normal three-day weekend carry, not staleness. The UI must show this date rather than implying a live rate, and the engine raises a warning once the age passes four calendar days.",
+  "notes": "ECB publishes on TARGET working days only, so on weekends and TARGET holidays the last published rate stands. This snapshot is dated 2026-10-27 (Tuesday) and was read on 2026-10-27 (Tuesday). The UI must show this date rather than implying a live rate, and the engine raises a warning once the age passes four calendar days.",
   "rates_to_usd": {
     "USD": "1.000000",
-    "EUR": "1.119300",
-    "GBP": "1.336829",
-    "AUD": "0.702240",
-    "INR": "0.010532",
-    "PHP": "0.015713"
+    "EUR": "1.115000",
+    "GBP": "1.332807",
+    "AUD": "0.703204",
+    "INR": "0.010513",
+    "PHP": "0.015627"
   }
 }
