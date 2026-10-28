@@ -174,18 +174,29 @@ class ModelBudget:
         return Decision(
             allowed=False,
             note=(
-                f"the free model budget for today is spent ({self.spent} of "
-                f"{self._limit} requests); it resets at 00:00 UTC. The figures "
-                "below are unaffected."
+                f"this deployment has sent {self.spent} of its {self._limit} model "
+                "requests since it started, and the daily allowance is spent. It "
+                "resets at 00:00 UTC. The figures below are unaffected."
             ),
         )
 
     def snapshot(self) -> dict:
+        """What was spent, and what actually enforces the ceiling.
+
+        The count is per process: a restart starts from zero, because there is no
+        shared store and inventing one for a hackathon demo would be worse than
+        saying so. The account's real ceiling is OpenRouter's 50/day, which no
+        restart can reset — this allowance exists to stay below it, not to replace
+        it.
+        """
         return {
             "requests_per_day": self._limit,
-            "spent_today": self.spent,
-            "remaining_today": self.remaining,
+            "sent_since_start": self.spent,
+            "remaining_allowance": self.remaining,
             "resets": "00:00 UTC",
+            "enforced_by": (
+                "this process; the account's hard ceiling is OpenRouter's 50/day"
+            ),
         }
 
 

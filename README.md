@@ -111,6 +111,12 @@ is still computed and the explanation is the deterministic template, with a note
 saying which limit was reached and when it resets. The numbers are never
 affected, because the model never had them in the first place.
 
+The 44 is counted per process, so a restart starts from zero. That is a
+deliberate weakness rather than a hidden one: OpenRouter enforces the account's
+50/day ceiling itself, and this allowance exists to stay under it, not to replace
+it. A shared counter would need a database, which is a lot of machinery for a
+demo whose arithmetic is a local file.
+
 Cached explanations are served regardless of either limit. Refusing an answer the
 app already holds would be a limit on the page rather than on the budget.
 

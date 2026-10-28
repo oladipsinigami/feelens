@@ -171,7 +171,7 @@ def test_an_exhausted_budget_says_what_was_spent_and_when_it_returns():
     decision = budget.decision()
 
     assert decision.allowed is False
-    assert "3 of 3" in decision.note
+    assert "3 of its 3 model requests" in decision.note
     assert "00:00 UTC" in decision.note
 
 
@@ -242,7 +242,7 @@ def test_an_exhausted_daily_budget_returns_the_template_and_says_why():
     explanation = explain(client)
 
     assert explanation["source"] == "template"
-    assert "budget for today is spent" in explanation["note"]
+    assert "daily allowance is spent" in explanation["note"]
     assert explanation["checks"]["ok"] is True
     assert model.requests == 0
 
@@ -286,7 +286,7 @@ def test_the_limits_are_visible_to_a_judge():
     assert "template" in limits["when_exceeded"]
 
     health = client.get("/api/health").json()
-    assert health["model_budget"]["remaining_today"] == 44
+    assert health["model_budget"]["remaining_allowance"] == 44
 
 
 # --- the wiring -----------------------------------------------------------

@@ -100,7 +100,12 @@ client-controlled and reading it would let anyone mint a new bucket per request.
 Neither limit returns an error. The quote is priced and the template explanation
 is served, with a note naming the limit and when it resets, and `/api/config`
 publishes both limits so the behaviour is inspectable rather than mysterious.
-`/api/health` reports the day's remaining requests.
+`/api/health` reports the remaining allowance.
+
+The daily count is per process, so a restart starts it from zero. That is stated
+rather than hidden: OpenRouter's own 50/day is the ceiling that actually holds,
+and the 44 exists to keep this deployment below it. Setting
+`MODEL_DAILY_REQUEST_CAP=0` switches the model off and says so.
 
 ## Verifying the deployment
 
