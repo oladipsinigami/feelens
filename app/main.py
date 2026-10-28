@@ -25,7 +25,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -56,6 +56,7 @@ from app.engine.models import (
     UnsupportedCombinationError,
     UnsupportedCurrencyError,
 )
+from app.limits import Decision, ModelBudget, VisitorLimiter
 from app.serialize import quote_payload
 
 load_dotenv()
@@ -75,6 +76,26 @@ GUARDRAIL_NOTE = (
     "answer is checked against the tool output, and an answer that fails is "
     "discarded in favour of a deterministic explanation."
 )
+
+# The model is the only metered part of this app, and the free tier is 50
+# requests a day shared by every visitor. These defaults spend at most 44 of
+# them and give one address six explanations per ten minutes; everything else is
+# the template, which costs nothing and is still correct. Both are overridable so
+# a local run is not throttled by a limit that exists for a public link.
+DEFAULT_EXPLAINS_PER_WINDOW = 6
+DEFAULT_WINDOW_MINUTES = 10
+DEFAULT_DAILY_REQUEST_CAP = 44
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = (os.environ.get(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value >= 0 else default
 
 
 class QuoteRequest(BaseModel):
@@ -106,20 +127,47 @@ def _parse_amount(raw: str) -> Decimal:
     return amount
 
 
-def _build_agent(fees, snapshot) -> ExplanationAgent:
+def _build_agent(fees, snapshot, budget=None) -> ExplanationAgent:
     key = (os.environ.get("OPENROUTER_API_KEY") or "").strip()
     model = (os.environ.get("LLM_MODEL") or "").strip() or DEFAULT_MODEL
     fallback = (
         (os.environ.get("LLM_FALLBACK_MODEL") or "").strip() or DEFAULT_FALLBACK_MODEL
     )
-    client = OpenRouterClient(key, model, fallback) if key else None
+    client = (
+        OpenRouterClient(
+            key,
+            model,
+            fallback,
+            on_request=budget.record if budget is not None else None,
+        )
+        if key
+        else None
+    )
     return ExplanationAgent(FeeTools(fees, snapshot), client)
+
+
+def _client_address(request: Request) -> str:
+    """The visitor's address, as far as it can be trusted behind a proxy.
+
+    Render terminates TLS and appends the peer address to `X-Forwarded-For`, so
+    a client that sends its own header produces `spoofed, real` and the last
+    entry is the one it cannot choose. Reading the first entry would let anyone
+    mint a fresh rate-limit bucket per request.
+    """
+    forwarded = (request.headers.get("x-forwarded-for") or "").strip()
+    if forwarded:
+        last = forwarded.split(",")[-1].strip()
+        if last:
+            return last
+    return request.client.host if request.client else "unknown"
 
 
 def create_app(
     fees_path: Path | None = None,
     fx_path: Path | None = None,
     agent: ExplanationAgent | None = None,
+    budget: ModelBudget | None = None,
+    limiter: VisitorLimiter | None = None,
 ) -> FastAPI:
     """Build the app against a specific pair of data files.
 
@@ -127,11 +175,23 @@ def create_app(
     live config, which is refreshed independently and would otherwise break the
     suite on every legitimate update. The agent is injectable for the same
     reason: a test must not reach the network, and must not depend on whatever
-    key happens to be in the environment.
+    key happens to be in the environment. The budget and the limiter are
+    injectable so a test can exhaust one without waiting ten minutes or spending
+    a day's requests.
     """
     fees = load_fees(fees_path or FEES_PATH)
     snapshot = load_rates(fx_path or FX_PATH)
-    agent = agent or _build_agent(fees, snapshot)
+    budget = budget or ModelBudget(
+        limit=_env_int("MODEL_DAILY_REQUEST_CAP", DEFAULT_DAILY_REQUEST_CAP)
+    )
+    limiter = limiter or VisitorLimiter(
+        max_explanations=_env_int(
+            "MODEL_EXPLAINS_PER_WINDOW", DEFAULT_EXPLAINS_PER_WINDOW
+        ),
+        window_seconds=60
+        * max(1, _env_int("MODEL_WINDOW_MINUTES", DEFAULT_WINDOW_MINUTES)),
+    )
+    agent = agent or _build_agent(fees, snapshot, budget)
 
     app = FastAPI(
         title="FeeLens",
@@ -196,6 +256,20 @@ def create_app(
             transaction=tx,
         )
 
+    def _allowance(address: str) -> Decision:
+        """May this request consult the model?
+
+        Two limits, cheapest first: this visitor's window, then the account's
+        day. A refusal is not an error — the quote is already priced and the
+        template explanation is guardrail-clean — so it is reported in the
+        explanation's note rather than as an HTTP failure. A 429 would be a lie
+        about what went wrong: nothing was rejected, one thing was withheld.
+        """
+        decision = limiter.take(address)
+        if not decision.allowed:
+            return decision
+        return budget.decision()
+
     @app.get("/api/health")
     def health():
         """What a host or a judge needs to know before trusting the page.
@@ -213,6 +287,7 @@ def create_app(
             "fx_age_days": age,
             "fx_stale": age > STALENESS_THRESHOLD_DAYS,
             "model_configured": agent.model_ready,
+            "model_budget": budget.snapshot(),
             "tier": MODELLED,
         }
 
@@ -234,6 +309,14 @@ def create_app(
                 "models": agent.client.models if agent.client else [],
                 "fallback": "deterministic template",
                 "guardrail": GUARDRAIL_NOTE,
+                "limits": {
+                    "per_visitor": limiter.snapshot(),
+                    "daily_model_requests": budget.snapshot(),
+                    "when_exceeded": (
+                        "the quote is still computed and the explanation is the "
+                        "deterministic template, which cites the same rules"
+                    ),
+                },
             },
             "disclaimer": DISCLAIMER,
         }
@@ -243,13 +326,16 @@ def create_app(
         return _price(request)
 
     @app.post("/api/explain")
-    def explain(request: ExplainRequest):
+    def explain(request: ExplainRequest, http_request: Request):
         payload = _price(request)
+        decision = _allowance(_client_address(http_request))
         explanation = agent.explain(
             request.amount,
             request.corridor,
             request.payment,
             request.question,
+            allow_model=decision.allowed,
+            blocked_note=decision.note,
         )
         return {**payload, "explanation": explanation.as_dict()}
 

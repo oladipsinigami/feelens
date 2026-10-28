@@ -82,6 +82,26 @@ free and tool-capable by `scripts/check_models.py`. The fallback helps with a
 per-model rate limit or an upstream outage; it does **not** help with the 50/day
 account limit, because that limit is shared.
 
+### The limits that keep the budget for a judge
+
+A public link with a 50/day budget and no limit is a link where the first visitor
+can spend the day. So `/api/explain` is capped twice:
+
+| variable | default | meaning |
+| --- | --- | --- |
+| `MODEL_EXPLAINS_PER_WINDOW` | `6` | explanations per visitor per window |
+| `MODEL_WINDOW_MINUTES` | `10` | length of the sliding window |
+| `MODEL_DAILY_REQUEST_CAP` | `44` | upstream requests per UTC day, all visitors |
+
+The per-visitor key is the **last** entry of `X-Forwarded-For`, because Render
+appends the real peer to whatever the client sent — the first entry is
+client-controlled and reading it would let anyone mint a new bucket per request.
+
+Neither limit returns an error. The quote is priced and the template explanation
+is served, with a note naming the limit and when it resets, and `/api/config`
+publishes both limits so the behaviour is inspectable rather than mysterious.
+`/api/health` reports the day's remaining requests.
+
 ## Verifying the deployment
 
 `/api/health` is the honest answer to "is this demo trustworthy right now".

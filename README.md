@@ -92,6 +92,28 @@ disabled, citation membership dropped, empty citation allowed, claim language
 allowed, dates read as numbers, prose numbers not harvested, caveats excluded,
 verdict forced to ok — and **all eight were caught** by the existing tests.
 
+### The budget the model runs on
+
+The engine is free to run and the model is not. The free tier is **50 requests a
+day, shared by every visitor to the live link**, and one explanation costs two or
+three of them. So the public deployment limits what can be spent, not what can be
+calculated:
+
+| limit | default | protects |
+| --- | --- | --- |
+| explanations per visitor | 6 per 10 minutes | the day's budget from one person clicking |
+| upstream model requests per day | 44 | the account from everyone, with 6 left over |
+
+Both are in `app/limits.py` and both are enforced at the point of spend — the
+client reports each request it actually sends, so a tool round trip, a fallback
+and a repair all count. Exceeding either does **not** return an error: the quote
+is still computed and the explanation is the deterministic template, with a note
+saying which limit was reached and when it resets. The numbers are never
+affected, because the model never had them in the first place.
+
+Cached explanations are served regardless of either limit. Refusing an answer the
+app already holds would be a limit on the page rather than on the budget.
+
 ## Three tiers, and only one of them is in use
 
 | tier | meaning | in use |

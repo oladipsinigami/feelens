@@ -29,3 +29,13 @@ services:
         value: "nvidia/nemotron-3-ultra-550b-a55b:free"
       - key: LLM_FALLBACK_MODEL
         value: "poolside/laguna-s-2.1:free"
+      # The free tier is 50 requests a day, shared by every visitor to this URL.
+      # These caps are what stop one crawler from spending the day's budget
+      # before a judge arrives. Exceeding either returns the template, which is
+      # still correct.
+      - key: MODEL_EXPLAINS_PER_WINDOW
+        value: "6"
+      - key: MODEL_WINDOW_MINUTES
+        value: "10"
+      - key: MODEL_DAILY_REQUEST_CAP
+        value: "44"

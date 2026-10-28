@@ -137,6 +137,8 @@ class ExplanationAgent:
         corridor: str,
         payment: str,
         question: str | None = None,
+        allow_model: bool = True,
+        blocked_note: str = "",
     ) -> Explanation:
         quote = self._tools.get_quote(str(amount), corridor, payment)
         if "error" in quote:
@@ -164,6 +166,15 @@ class ExplanationAgent:
         remembered = self._cache.get(key)
         if remembered is not None:
             return replace(remembered, cached=True)
+
+        # A cached answer is free, so it is served whether or not the model may
+        # be consulted. Refusing a request the app already has the answer to
+        # would be a limit on the visitor, not on the budget.
+        if not allow_model:
+            note = blocked_note or "the model was not consulted for this request"
+            if question and question.strip():
+                note = f"{note}; the question was not answered"
+            return self._from_template(quote, note=note)
 
         start = len(self._tools.calls)
         try:

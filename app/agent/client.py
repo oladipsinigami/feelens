@@ -69,6 +69,7 @@ class OpenRouterClient:
         temperature: float = 0.2,
         max_tokens: int = 2000,
         sleep=time.sleep,
+        on_request=None,
     ):
         self._api_key = (api_key or "").strip()
         self._models = [m for m in (model, fallback_model) if m]
@@ -78,6 +79,11 @@ class OpenRouterClient:
         self._temperature = temperature
         self._max_tokens = max_tokens
         self._sleep = sleep
+        # Called once per HTTP request, before it is sent — the only honest place
+        # to count what an explanation costs. A tool round trip, a fallback and a
+        # repair are all real requests, and a budget that counted explanations
+        # instead would be a guess about them.
+        self._on_request = on_request
 
     @property
     def available(self) -> bool:
@@ -123,6 +129,8 @@ class OpenRouterClient:
         }
 
         try:
+            if self._on_request is not None:
+                self._on_request()
             with httpx.Client(
                 transport=self._transport, timeout=self._timeout
             ) as client:
