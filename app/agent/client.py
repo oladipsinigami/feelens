@@ -130,9 +130,23 @@ class OpenRouterClient:
 
         try:
             data = response.json()
+        except ValueError as exc:
+            raise LLMUnavailable("response was not JSON") from exc
+
+        # OpenRouter returns 200 with an error body when an upstream provider is
+        # saturated ("ResourceExhausted: Worker local total request limit
+        # reached"). Reporting that as "not a chat completion" would throw away
+        # the only useful sentence in the response and make a provider problem
+        # look like a parsing bug.
+        if isinstance(data, dict) and data.get("error"):
+            detail = data["error"]
+            text = detail.get("message") if isinstance(detail, dict) else str(detail)
+            raise LLMUnavailable(f"upstream error: {text or 'unspecified'}")
+
+        try:
             choice = data["choices"][0]
             message = choice["message"]
-        except (ValueError, KeyError, IndexError, TypeError) as exc:
+        except (KeyError, IndexError, TypeError) as exc:
             raise LLMUnavailable("response was not a chat completion") from exc
 
         calls = []

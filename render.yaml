@@ -28,4 +28,4 @@ services:
       - key: LLM_MODEL
         value: "nvidia/nemotron-3-ultra-550b-a55b:free"
       - key: LLM_FALLBACK_MODEL
-        value: "nvidia/nemotron-3.5-lightning:free"
+        value: "poolside/laguna-s-2.1:free"

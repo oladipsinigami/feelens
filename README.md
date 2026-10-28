@@ -165,6 +165,11 @@ Copy `.env.example` to `.env` to enable the model. The PayPal sandbox
 credentials in it are only used by `scripts/check_sandbox.py`; the web app never
 calls the PayPal API.
 
+The model key is optional and free-tier. Without it every explanation is the
+template; with it, the first explanation of a quote takes 20–60 seconds on a
+loaded free provider and every repeat is instant from an in-process cache. When
+the daily quota runs out the template comes back and says why.
+
 ## API
 
 | endpoint | purpose |

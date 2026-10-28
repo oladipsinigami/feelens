@@ -24,6 +24,18 @@ def test_primary_and_fallback_are_different_models():
     assert DEFAULT_MODEL != DEFAULT_FALLBACK_MODEL
 
 
+def test_both_models_are_free_variants():
+    """Free models only, by name as well as by price.
+
+    The key carries a $0 credit limit, so a paid model would fail rather than
+    bill — but it would fail *quietly*, as a template explanation. A `:free`
+    suffix is the cheap half of that guarantee; `scripts/check_models.py`
+    verifies the price from OpenRouter's own listing.
+    """
+    assert DEFAULT_MODEL.endswith(":free")
+    assert DEFAULT_FALLBACK_MODEL.endswith(":free")
+
+
 def test_the_blueprint_deploys_the_models_the_code_defaults_to():
     text = (ROOT / "render.yaml").read_text(encoding="utf-8")
 

@@ -85,9 +85,11 @@ def template_explanation(quote: dict) -> dict:
         )
 
     if invoice_currency != receive_currency:
+        age = current["fx_age_days"]
         parts.append(
             f"The conversion uses the ECB reference rate for "
-            f"{current['fx_snapshot_date']}, which is {current['fx_age_days']} days old."
+            f"{current['fx_snapshot_date']}, which is {age} "
+            f"{'day' if age == 1 else 'days'} old."
         )
 
     savings = quote["savings"]

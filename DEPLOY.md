@@ -48,6 +48,32 @@ That is the failure mode this check exists to catch — a pin on the direct
 dependencies does not pin their dependencies, so "it worked on my machine" is
 not evidence about the build machine.
 
+## What the free model costs you
+
+The key is free-tier: **50 model requests per day, 20 per minute**, and one
+explanation is two or three requests — the tool round trip, then the answer,
+plus one if the guardrail asks for a repair.
+
+Measured on the demo quote, the first explanation takes **20–60 seconds**
+depending on how loaded the provider is. A repeated quote is served from an
+in-process cache and takes **0.0 seconds**, because the same invoice asked twice
+is the same explanation and should not cost a second request. Only validated
+model answers are cached; a template is cheap to rebuild and is never stored, so
+a later request can still reach the model once it recovers.
+
+Practical consequence: explain the three quotes you intend to show **before** you
+share the link. The cache makes every later view of those quotes instant, and a
+judge is unlikely to click through all fifteen corridor × product combinations.
+
+When the quota runs out, nothing breaks. `/api/explain` returns the template and
+the note says `model unavailable: …`, which is the same thing it says when no key
+is configured at all.
+
+Two free models are configured, primary then fallback, and both are verified as
+free and tool-capable by `scripts/check_models.py`. The fallback helps with a
+per-model rate limit or an upstream outage; it does **not** help with the 50/day
+account limit, because that limit is shared.
+
 ## Verifying the deployment
 
 `/api/health` is the honest answer to "is this demo trustworthy right now".

@@ -69,7 +69,7 @@ DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
 # second call 404s, LLMUnavailable is raised, and every explanation quietly
 # becomes the template while /api/health still says a model is configured. This
 # one is checked against OpenRouter's public model list by scripts/check_models.py.
-DEFAULT_FALLBACK_MODEL = "nvidia/nemotron-3.5-lightning:free"
+DEFAULT_FALLBACK_MODEL = "poolside/laguna-s-2.1:free"
 GUARDRAIL_NOTE = (
     "The model may only restate figures returned by a tool. Every number in its "
     "answer is checked against the tool output, and an answer that fails is "

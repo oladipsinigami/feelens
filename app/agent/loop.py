@@ -14,7 +14,7 @@ busy. An explanation is a convenience; the numbers are the product.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from app.agent.client import LLMUnavailable
 from app.agent.guardrails import validate
@@ -36,6 +36,7 @@ class Explanation:
     trace: list = field(default_factory=list)
     model: str = ""
     note: str = ""
+    cached: bool = False
 
     def as_dict(self) -> dict:
         return {
@@ -47,6 +48,7 @@ class Explanation:
             "trace": list(self.trace),
             "model": self.model,
             "note": self.note,
+            "cached": self.cached,
         }
 
 
@@ -70,11 +72,35 @@ def _extract_json(text: str) -> dict | None:
 
 
 class ExplanationAgent:
-    def __init__(self, tools, client=None, max_steps: int = 4, max_repairs: int = 1):
+    def __init__(
+        self,
+        tools,
+        client=None,
+        max_steps: int = 4,
+        max_repairs: int = 1,
+        cache_size: int = 256,
+    ):
         self._tools = tools
         self._client = client
         self._max_steps = max_steps
         self._max_repairs = max_repairs
+        # A free model account gets 50 requests a day, and one explanation costs
+        # two or three. The same quote asked twice is the same explanation, so
+        # the second one costs nothing — which is most of a demo. Only validated
+        # model answers are stored; a template is cheap to rebuild and should
+        # not stop a later request from trying the model again.
+        self._cache: dict = {}
+        self._cache_size = cache_size
+
+    def _cache_key(self, amount, corridor, payment, question):
+        snapshot_date = ""
+        try:
+            snapshot_date = self._tools.get_fx_snapshot()["snapshot_date"]
+        except Exception:
+            # A cache key without the rate date is still correct within a
+            # process: the snapshot only changes on restart.
+            pass
+        return (str(amount), corridor, payment, (question or "").strip(), snapshot_date)
 
     @property
     def client(self):
@@ -113,14 +139,35 @@ class ExplanationAgent:
                 note = "no model configured; the question was not answered"
             return self._from_template(quote, note=note)
 
+        key = self._cache_key(amount, corridor, payment, question)
+        remembered = self._cache.get(key)
+        if remembered is not None:
+            return replace(remembered, cached=True)
+
         start = len(self._tools.calls)
         try:
-            return self._run_model(quote, amount, corridor, payment, question, start)
+            explanation = self._run_model(quote, amount, corridor, payment, question, start)
         except LLMUnavailable as exc:
             note = f"model unavailable: {exc}"
             if question and question.strip():
                 note = f"{note}; the question was not answered"
             return self._from_template(quote, note=note, start=start)
+
+        if explanation.source == MODEL:
+            self._remember(key, explanation)
+        return explanation
+
+    def _remember(self, key, explanation) -> None:
+        """Store a validated answer, dropping the oldest when the cache is full.
+
+        Only model answers are stored. A template costs nothing to rebuild and
+        caching it would keep the page on the template after the model came
+        back — the one case where retrying is worth a request.
+        """
+        if len(self._cache) >= self._cache_size:
+            for stale in list(self._cache)[: max(1, self._cache_size // 8)]:
+                self._cache.pop(stale, None)
+        self._cache[key] = explanation
 
     # -- model path -------------------------------------------------------
 
