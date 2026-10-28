@@ -17,6 +17,12 @@ The PayPal credentials are **not** on the server. They are used only by
 `scripts/check_sandbox.py`, which runs by hand; the web app never calls the
 PayPal API. Adding them to the host would be a secret with nothing consuming it.
 
+Both model names are checked by `python scripts/check_models.py`, which needs no
+key: OpenRouter publishes its model list publicly. It verifies that each name
+exists, is free, and advertises tool support. Run it before changing a model
+name — a wrong fallback is invisible until the primary is rate-limited, and then
+it silently turns every explanation into the template.
+
 ## Steps
 
 1. Push this repository to GitHub. `render.yaml` is already at the root, so

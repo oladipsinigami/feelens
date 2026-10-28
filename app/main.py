@@ -63,6 +63,13 @@ load_dotenv()
 STATIC = Path(__file__).resolve().parent / "static"
 
 DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
+
+# The fallback matters more than it looks. On a free tier a rate-limited primary
+# is the normal case, and a fallback that does not exist is worse than none: the
+# second call 404s, LLMUnavailable is raised, and every explanation quietly
+# becomes the template while /api/health still says a model is configured. This
+# one is checked against OpenRouter's public model list by scripts/check_models.py.
+DEFAULT_FALLBACK_MODEL = "nvidia/nemotron-3.5-lightning:free"
 GUARDRAIL_NOTE = (
     "The model may only restate figures returned by a tool. Every number in its "
     "answer is checked against the tool output, and an answer that fails is "
@@ -102,7 +109,9 @@ def _parse_amount(raw: str) -> Decimal:
 def _build_agent(fees, snapshot) -> ExplanationAgent:
     key = (os.environ.get("OPENROUTER_API_KEY") or "").strip()
     model = (os.environ.get("LLM_MODEL") or "").strip() or DEFAULT_MODEL
-    fallback = (os.environ.get("LLM_FALLBACK_MODEL") or "").strip() or None
+    fallback = (
+        (os.environ.get("LLM_FALLBACK_MODEL") or "").strip() or DEFAULT_FALLBACK_MODEL
+    )
     client = OpenRouterClient(key, model, fallback) if key else None
     return ExplanationAgent(FeeTools(fees, snapshot), client)
 

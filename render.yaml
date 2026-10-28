@@ -28,4 +28,4 @@ services:
       - key: LLM_MODEL
         value: "nvidia/nemotron-3-ultra-550b-a55b:free"
       - key: LLM_FALLBACK_MODEL
-        value: "qwen/qwen3.8-27b:free"
+        value: "nvidia/nemotron-3.5-lightning:free"
