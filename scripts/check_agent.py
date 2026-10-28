@@ -38,9 +38,13 @@ def main() -> int:
 
     load_dotenv()
 
+    from app.main import DEFAULT_FALLBACK_MODEL, DEFAULT_MODEL
+
     key = (os.environ.get("OPENROUTER_API_KEY") or "").strip()
-    model = args.model or (os.environ.get("LLM_MODEL") or "").strip()
-    fallback = (os.environ.get("LLM_FALLBACK_MODEL") or "").strip() or None
+    model = args.model or (os.environ.get("LLM_MODEL") or "").strip() or DEFAULT_MODEL
+    fallback = (
+        (os.environ.get("LLM_FALLBACK_MODEL") or "").strip() or DEFAULT_FALLBACK_MODEL
+    )
 
     if not key:
         print("OPENROUTER_API_KEY is empty. Add it to .env first.")
