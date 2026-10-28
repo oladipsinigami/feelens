@@ -108,6 +108,43 @@ def test_a_rate_limit_is_reported_with_its_status():
     assert "HTTP 429" in str(caught.value)
 
 
+def test_the_finish_reason_survives_into_the_result():
+    """The loop needs it to tell truncation from an empty answer."""
+    def handler(request):
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {"message": {"role": "assistant", "content": '{"explanation": "cut'},
+                     "finish_reason": "length"}
+                ],
+                "model": "primary/model:free",
+            },
+        )
+
+    result = client(handler).chat(MESSAGES)
+
+    assert result.finish_reason == "length"
+
+
+def test_the_token_budget_leaves_room_for_reasoning():
+    """A reasoning model spends `max_tokens` thinking before it writes.
+
+    Measured: 515 of 900 tokens on reasoning, then the JSON was cut off. A
+    budget that only fits the answer is a budget that produces nothing, because
+    a half-written JSON object parses as nothing at all.
+    """
+    seen = {}
+
+    def handler(request):
+        seen.update(json.loads(request.content))
+        return completion("ok")
+
+    client(handler).chat(MESSAGES)
+
+    assert seen["max_tokens"] >= 2000
+
+
 def test_the_fallback_is_tried_and_the_reason_is_kept():
     """Both failures must survive into the message; the page shows it."""
     seen = []

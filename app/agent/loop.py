@@ -71,6 +71,27 @@ def _extract_json(text: str) -> dict | None:
     return parsed if isinstance(parsed, dict) else None
 
 
+def _stop_note(result) -> str:
+    """Why the model produced nothing usable, in the model's own vocabulary.
+
+    `finish_reason` is the difference between "the provider returned an empty
+    message" and "the reply was cut off at the token budget". Both end in the
+    template, but only one of them is fixed by raising `max_tokens`, so the note
+    has to say which one happened.
+    """
+    if result is None:
+        return "the model returned no answer"
+    reason = (result.finish_reason or "").strip()
+    if reason == "length":
+        return (
+            "the model ran out of tokens before it finished answering "
+            "(finish_reason: length)"
+        )
+    if reason:
+        return f"the model returned no answer (finish_reason: {reason})"
+    return "the model returned no answer"
+
+
 class ExplanationAgent:
     def __init__(
         self,
@@ -223,7 +244,7 @@ class ExplanationAgent:
             )
 
         if result is None or not result.content:
-            return self._from_template(quote, note="the model returned no answer", start=start)
+            return self._from_template(quote, note=_stop_note(result), start=start)
 
         # A model that never called a tool has no numbers, and the guardrail
         # will say so — but name the cause here so the trace is readable.
@@ -233,6 +254,18 @@ class ExplanationAgent:
             )
 
         answer = _extract_json(result.content)
+        if answer is None and result.finish_reason == "length":
+            # Asking again with the same budget would truncate in the same
+            # place, and cost a request to prove it. The truncation is the
+            # diagnosis; the template is the answer.
+            return self._from_template(
+                quote,
+                note=(
+                    "the model's reply was cut off at the token limit before "
+                    "the JSON closed (finish_reason: length)"
+                ),
+                start=start,
+            )
         if answer is None:
             answer = self._repair(
                 messages, result.content, ["the reply was not the required JSON object"]

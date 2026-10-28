@@ -173,6 +173,54 @@ def test_a_reply_that_is_not_json_is_repaired_not_shown(tools):
     assert "JSON object" in client.requests[2]["messages"][-1]["content"]
 
 
+def test_a_reply_cut_off_by_the_token_limit_says_it_was_cut_off(tools):
+    """The failure that actually happened live, and it was invisible.
+
+    A reasoning model spent 515 of its 900 tokens thinking and ran out mid-JSON.
+    The old note said "failed validation: no answer", which reads like a parsing
+    bug and hides the one fact that fixes it.
+    """
+    truncated = ChatResult(
+        content='{"explanation": "The largest cost is the FX spread of 150.00 EUR',
+        tool_calls=[],
+        model="fake/model",
+        finish_reason="length",
+    )
+
+    explanation, client = run(tools, [calls_tool(), truncated])
+
+    assert explanation.source == TEMPLATE
+    assert "finish_reason: length" in explanation.note
+    assert "no answer" not in explanation.note
+    assert len(client.requests) == 2, "a truncated reply must not buy a repair"
+
+
+def test_an_empty_reply_names_the_finish_reason_when_there_is_one(tools):
+    empty = ChatResult(
+        content="", tool_calls=[], model="fake/model", finish_reason="content_filter"
+    )
+
+    explanation, _ = run(tools, [calls_tool(), empty])
+
+    assert explanation.source == TEMPLATE
+    assert "content_filter" in explanation.note
+
+
+def test_a_truncated_reply_that_still_parses_is_accepted(tools):
+    """Cutting off trailing caveats is not a reason to throw away a valid answer."""
+    complete = json.dumps(
+        template_explanation(tools.get_quote("5000.00", "EUR", "invoice_paypal"))
+    )
+    truncated = ChatResult(
+        content=complete, tool_calls=[], model="fake/model", finish_reason="length"
+    )
+
+    explanation, _ = run(tools, [calls_tool(), truncated])
+
+    assert explanation.source == MODEL
+    assert explanation.checks["ok"] is True
+
+
 def test_json_inside_a_code_fence_is_still_read(tools):
     fenced = answer(
         "```json\n"

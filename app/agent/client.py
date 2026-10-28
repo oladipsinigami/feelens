@@ -17,6 +17,13 @@ a request the user is staring at, and the deterministic template is already good
 enough to ship — so a slow model loses to a fast fallback. Worst case is two
 models at the timeout plus one short pause, about a minute, before the template
 is served.
+
+The token budget is not a style choice. A reasoning model spends `max_tokens` on
+its thinking before it writes anything, and this one was measured spending 515
+of 900 on reasoning and then running out of room mid-JSON. A truncated answer is
+worse than a short one: it parses as nothing and the guardrail never sees it.
+2000 leaves room for the reasoning plus the full explanation object, and a
+truncated reply is now reported as truncated rather than as "no answer".
 """
 
 from __future__ import annotations
@@ -60,7 +67,7 @@ class OpenRouterClient:
         transport=None,
         timeout: float = 30.0,
         temperature: float = 0.2,
-        max_tokens: int = 900,
+        max_tokens: int = 2000,
         sleep=time.sleep,
     ):
         self._api_key = (api_key or "").strip()
