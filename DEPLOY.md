@@ -65,6 +65,14 @@ Practical consequence: explain the three quotes you intend to show **before** yo
 share the link. The cache makes every later view of those quotes instant, and a
 judge is unlikely to click through all fifteen corridor × product combinations.
 
+The cache is in process memory, so it dies with the instance. On the free plan
+the instance sleeps after 15 minutes of inactivity, which means a warmed quote
+is warm only while something is keeping the app awake — point a free uptime
+monitor (cron-job.org, UptimeRobot) at `/api/health` every 10 minutes and both
+the cold start and the cold cache stop being a problem. Without one, the first
+click after a sleep costs 20–60 seconds again, and the page is honest about it:
+the chip reads `ai` only once the model has actually answered.
+
 When the quota runs out, nothing breaks. `/api/explain` returns the template and
 the note says `model unavailable: …`, which is the same thing it says when no key
 is configured at all.

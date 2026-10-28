@@ -12,6 +12,10 @@ model explains the result and is mechanically prevented from changing it.
 python -m uvicorn app.main:app --port 8000     →  http://127.0.0.1:8000
 ```
 
+Live: **https://feelens-su23.onrender.com** (Render free tier — the first request
+after a sleep takes ~30s to wake, and the first explanation of a quote takes
+20–60s on a loaded free model).
+
 ---
 
 ## The problem
