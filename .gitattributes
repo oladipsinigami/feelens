@@ -1,0 +1,5 @@
+# Vendored third-party files must survive a clone byte-for-byte, because
+# specs/MANIFEST.json publishes their SHA-256 digests. With core.autocrlf=true
+# (the Windows default) git would rewrite these to CRLF on checkout and every
+# digest would stop matching.
+specs/*.json -text
