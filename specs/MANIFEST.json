@@ -1,5 +1,5 @@
 {
-  "purpose": "Vendored copies of PayPal's official OpenAPI specifications, used as build-time input to APIMatic tooling. FeeLens does not call these APIs at runtime.",
+  "purpose": "Vendored copies of PayPal's official OpenAPI specifications, read directly during the build. FeeLens does not call these APIs at runtime.",
   "upstream": {
     "repository": "https://github.com/paypal/paypal-rest-api-specifications",
     "branch": "main",

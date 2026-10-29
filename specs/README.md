@@ -64,16 +64,11 @@ schedule is not discoverable from the API, so it has to live in an inspectable
 config file with sources (`app/data/fees.json`) instead of being asserted by a
 model.
 
-## Build-time tooling
+## How these were used
 
-APIMatic Context Plugins were used during development to give the coding agent
-the PayPal API surface above, so that field names and response shapes came from
-the spec rather than from memory.
-
-> **Status: pending.** This section is filled in from the artifact the plugin
-> produces — not from intent. Until an artifact is committed alongside this
-> file, **no APIMatic claim appears in the top-level `README.md` or the Devpost
-> submission.** The claim and the evidence ship together or not at all.
+They were read directly during the build, and the three findings above are
+quoted or derived from them. No third-party tooling was run over them, so no
+tooling is claimed anywhere in this repository or in the Devpost submission.
 
 ## Licensing
 
