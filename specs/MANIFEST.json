@@ -1,0 +1,43 @@
+{
+  "purpose": "Vendored copies of PayPal's official OpenAPI specifications, used as build-time input to APIMatic tooling. FeeLens does not call these APIs at runtime.",
+  "upstream": {
+    "repository": "https://github.com/paypal/paypal-rest-api-specifications",
+    "branch": "main",
+    "license": "Apache-2.0",
+    "license_file": "LICENSE.paypal-rest-api-specifications"
+  },
+  "retrieved_date": "2026-10-29",
+  "retrieved_by": "curl -sSfL https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/main/openapi/<file>",
+  "files": [
+    {
+      "path": "checkout_orders_v2.json",
+      "source_url": "https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/main/openapi/checkout_orders_v2.json",
+      "openapi_title": "Orders",
+      "openapi_version": "2.32",
+      "paths": 8,
+      "schemas": 210,
+      "bytes": 971284,
+      "sha256": "14db0b9e0d7440e38595b823724599edc7ab8b7a2b41ac442463e81b7d477fd6"
+    },
+    {
+      "path": "invoicing_v2.json",
+      "source_url": "https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/main/openapi/invoicing_v2.json",
+      "openapi_title": "Invoices",
+      "openapi_version": "2.6",
+      "paths": 16,
+      "schemas": 131,
+      "bytes": 276617,
+      "sha256": "b38ec179b0a904eed50825cd0b456e788569dc3fdb6efd08e131751f7cc19f52"
+    },
+    {
+      "path": "reporting_transactions_v1.json",
+      "source_url": "https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/main/openapi/reporting_transactions_v1.json",
+      "openapi_title": "Transaction Search",
+      "openapi_version": "1.9",
+      "paths": 2,
+      "schemas": 46,
+      "bytes": 75463,
+      "sha256": "40f2af0c02c204dde9227b14a6f9f91c2a6cc4222fe2c7c20983c6bc6f9e52b4"
+    }
+  ]
+}
