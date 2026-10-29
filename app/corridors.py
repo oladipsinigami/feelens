@@ -63,6 +63,12 @@ PAYMENT_OPTIONS = (
         "spoken": "a direct send to your PayPal address",
         "transaction_type": "goods_services",
         "payment_method": "goods_services_transfer",
+        "caveat": (
+            "This is PayPal's send-money product, not its invoicing or checkout "
+            "product. Check that the payment qualifies for Seller Protection "
+            "before you use it for business income; a payment that does not "
+            "may leave you with little recourse if the client disputes it."
+        ),
     },
     {
         "id": "invoice_paypal",

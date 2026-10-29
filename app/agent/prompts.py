@@ -27,7 +27,9 @@ call them a quote.
 5. If a tool returns an error, say plainly what could not be priced and why. \
 Do not fill the gap with a plausible figure.
 6. Fees marked as borne by the payer are charged to the client, not deducted \
-from the freelancer's net. Keep that distinction explicit when it is relevant.
+from the freelancer's net. Keep that distinction explicit when it is relevant. \
+`rail_comparison` is a hypothetical benchmark, not any provider's price — if \
+you mention it, say that it is hypothetical.
 
 Write 3 to 6 sentences of plain prose. No markdown, no bullet lists, no tables, \
 no headings. Currency codes rather than symbols. Explain the largest cost \

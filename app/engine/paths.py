@@ -10,15 +10,35 @@ capability for a standard account, so it is not offered rather than offered
 and rejected with a guess.
 """
 
+from decimal import Decimal
+
 from .calculator import (
     HOLDING_CURRENCY_PATH,
     calculate_effective_cost,
+    round_money,
     with_invoice_currency,
 )
-from .models import Comparison, RejectedPath, Transaction
+from .models import Comparison, RailBenchmark, RejectedPath, Transaction
 
 CURRENT_PATH = "current"
+CLIENT_CONVERTS_PATH = "client_converts"
 PAYER_SPREAD_NOTE = "payer_funds_other_currency"
+
+# Not a provider's price. A round number used only to say "the same payment on
+# a cheap rail is roughly this", because a fee with nothing to compare it to is
+# a number a reader cannot judge. Every surface that shows it says hypothetical.
+NOMINAL_RAIL_PCT = Decimal("1.00")
+
+
+def rail_benchmark(current) -> RailBenchmark:
+    """What a 1% rail would take from the same gross, for scale only."""
+    fee = round_money(current.gross_received * NOMINAL_RAIL_PCT / Decimal(100))
+    return RailBenchmark(
+        rate_pct=NOMINAL_RAIL_PCT,
+        fee=fee,
+        net=round_money(current.gross_received - fee),
+        currency=current.total_fees_currency,
+    )
 
 
 def compare_paths(
@@ -80,6 +100,25 @@ def compare_paths(
         )
 
     savings = current.total_fees - optimized.total_fees
+
+    # Price the other side of the same route. Re-denominating the invoice into
+    # USD only saves the receiver money because the conversion has to happen
+    # somewhere; if the client still holds EUR, it happens to them. Computing
+    # that here means the figure can be stated by the template, which may only
+    # repeat numbers the engine produced.
+    client_converts = None
+    payer_cost = Decimal("0")
+    if optimized is not current:
+        client_converts = calculate_effective_cost(
+            with_invoice_currency(
+                tx, holding, snapshot, keep_payer_currency=True
+            ),
+            CLIENT_CONVERTS_PATH,
+            fees,
+            snapshot,
+        )
+        payer_cost = client_converts.payer_side_total
+
     if optimized is not current:
         rejected.append(
             RejectedPath(
@@ -100,9 +139,10 @@ def compare_paths(
         assumptions.append(
             f"This cheaper path invoices in {holding} instead of "
             f"{tx.invoice_currency}, so it assumes the client pays in "
-            f"{holding} without converting. If they choose to pay in their own "
-            "currency instead, PayPal applies a 4.00% conversion spread to them "
-            "— a real cost that does not appear in your net."
+            f"{holding} without converting. If they pay from a "
+            f"{tx.payer_currency} balance instead, PayPal applies a 4.00% "
+            "conversion spread to them. That cost is priced separately as the "
+            "client side of this comparison, and is not deducted from your net."
         )
 
     return Comparison(
@@ -112,4 +152,7 @@ def compare_paths(
         savings_currency=current.total_fees_currency,
         rejected=rejected,
         assumptions=assumptions,
+        client_converts=client_converts,
+        net_savings=savings - payer_cost,
+        rail=rail_benchmark(current),
     )

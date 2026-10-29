@@ -120,6 +120,16 @@ function renderPaymentOptions() {
     description.textContent = option.description;
     text.append(title, description);
 
+    // A product caveat is not a fee, so it is not part of the quote. It is
+    // shown here, before the choice is made, because a warning that arrives
+    // with the result is a warning about a decision already taken.
+    if (option.caveat) {
+      const caveat = document.createElement("span");
+      caveat.className = "option-caveat";
+      caveat.textContent = option.caveat;
+      text.append(caveat);
+    }
+
     label.append(input, text);
     container.append(label);
   }
@@ -201,6 +211,7 @@ function render(data) {
   renderBreakdown($("breakdown-body"), current.lines);
   renderPayer(current);
   renderFx(current, data.amount, invoiceCurrency, receiveCurrency);
+  renderRail(data, receiveCurrency);
   renderSavings(data, receiveCurrency);
   renderList($("assumptions"), data.assumptions);
   renderList($("rejected"), data.rejected.map((item) => `${item.path_id.replace(/_/g, " ")}: ${item.reason}`));
@@ -391,10 +402,14 @@ function renderFx(current, amount, invoiceCurrency, receiveCurrency) {
 
 function renderSavings(data, receiveCurrency) {
   const card = $("savings-card");
+  const client = $("savings-client");
+  const annual = $("savings-annual");
   const value = data.savings;
   const cheaper = !isZero(value) && String(value).startsWith("-") === false;
 
   card.hidden = false;
+  client.hidden = true;
+  annual.hidden = true;
 
   if (!cheaper) {
     card.classList.add("neutral");
@@ -408,12 +423,69 @@ function renderSavings(data, receiveCurrency) {
   card.classList.remove("neutral");
   const caveat = data.assumptions.find((line) => line.includes("4.00%"));
 
-  $("savings-title").textContent = "A cheaper route";
+  $("savings-title").textContent = "A cheaper route — and who pays for it";
   $("savings-value").textContent =
     `Invoice in ${data.optimized.net_received_currency} instead: you keep `
     + `${money(data.optimized.net_received, receiveCurrency)}, which is `
     + `${money(value, data.savings_currency)} more.`;
+
+  // The saving exists because the conversion moved, not because it vanished.
+  // Saying who now pays it is the difference between an audit and a pitch.
+  const side = data.client_side;
+  const net = data.net_savings;
+  if (side && side.payer_converts && !isZero(side.total)) {
+    let text =
+      `Your client pays ${money(side.total, side.currency)} more to fund a `
+      + `${side.invoice_currency} invoice from a ${side.payer_currency} balance.`;
+    if (net && !isZero(net.magnitude)) {
+      if (net.direction === "worse_off") {
+        text += ` Net of that, the two of you are `
+          + `${money(net.magnitude, net.currency)} worse off on this invoice.`;
+      } else if (net.direction === "better_off") {
+        text += ` Even after that, the two of you are `
+          + `${money(net.magnitude, net.currency)} better off on this invoice.`;
+      }
+    }
+    client.hidden = false;
+    client.textContent = text;
+  }
+
+  const year = data.savings_if_monthly_for_a_year;
+  if (year && !isZero(year.receiver_savings)) {
+    let text =
+      `Repeated monthly for a year: ${money(year.receiver_savings, data.savings_currency)} `
+      + "more for you";
+    if (!isZero(year.client_cost)) {
+      text += `, ${money(year.client_cost, data.savings_currency)} more for your client`;
+    }
+    const netYear = year.net;
+    if (netYear && netYear.direction === "worse_off") {
+      text += `, a net ${money(netYear.magnitude, netYear.currency)} worse for the pair.`;
+    } else if (netYear && netYear.direction === "better_off") {
+      text += `, a net ${money(netYear.magnitude, netYear.currency)} better for the pair.`;
+    } else {
+      text += ".";
+    }
+    annual.hidden = false;
+    annual.textContent = text;
+  }
+
   $("savings-caveat").textContent = caveat || "";
+}
+
+function renderRail(data, receiveCurrency) {
+  const card = $("rail-card");
+  const rail = data.rail_comparison;
+  if (!rail) {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+  $("rail-text").textContent =
+    `${rail.basis} On this invoice it would take `
+    + `${money(rail.fee, rail.currency)} and leave `
+    + `${money(rail.net, rail.currency)}, against `
+    + `${money(data.current.net_received, receiveCurrency)} through PayPal.`;
 }
 
 function renderList(list, items) {

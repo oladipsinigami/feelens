@@ -11,13 +11,20 @@ from .calculator import (
     staleness_warning,
     with_invoice_currency,
 )
-from .paths import CURRENT_PATH, PAYER_SPREAD_NOTE, compare_paths
+from .paths import (
+    CLIENT_CONVERTS_PATH,
+    CURRENT_PATH,
+    NOMINAL_RAIL_PCT,
+    PAYER_SPREAD_NOTE,
+    compare_paths,
+)
 from .models import (
     Comparison,
     CostBreakdown,
     FeeConfig,
     FeeConfigError,
     FeeLine,
+    RailBenchmark,
     RejectedPath,
     Rule,
     Transaction,
@@ -26,6 +33,7 @@ from .models import (
 )
 
 __all__ = [
+    "CLIENT_CONVERTS_PATH",
     "CURRENT_PATH",
     "Comparison",
     "CostBreakdown",
@@ -33,7 +41,9 @@ __all__ = [
     "FeeConfigError",
     "FeeLine",
     "HOLDING_CURRENCY_PATH",
+    "NOMINAL_RAIL_PCT",
     "PAYER_SPREAD_NOTE",
+    "RailBenchmark",
     "RejectedPath",
     "Rule",
     "STALENESS_THRESHOLD_DAYS",

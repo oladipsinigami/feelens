@@ -134,12 +134,36 @@ class CostBreakdown:
     payer_side_currency: str = ""
     fx_age_days: int = 0
     fx_stale: bool = False
+    # The pair of currencies the fee lines were assessed in. Kept on the result
+    # so a caller can say "the client pays a conversion from EUR into a USD
+    # invoice" without re-deriving it from a line that might be empty.
+    invoice_currency: str = ""
+    payer_currency: str = ""
 
 
 @dataclass(frozen=True)
 class RejectedPath:
     path_id: str
     reason: str
+
+
+@dataclass(frozen=True)
+class RailBenchmark:
+    """A hypothetical non-PayPal rail, computed only to give the fee a scale.
+
+    FeeLens prices no other provider: it holds no sourced rate for one, and
+    inventing a provider's number would break the rule that every figure traces
+    to a rule id. What it can do is answer the question a reader actually has —
+    "is 417.57 a lot?" — with a stated benchmark instead of silence.
+
+    The rate is a round number, labelled hypothetical everywhere it appears, and
+    never presented as a quote from anyone.
+    """
+
+    rate_pct: Decimal
+    fee: Decimal
+    net: Decimal
+    currency: str
 
 
 @dataclass
@@ -150,3 +174,11 @@ class Comparison:
     savings_currency: str
     rejected: list
     assumptions: list = field(default_factory=list)
+    # What the "cheaper" route costs the other side, priced by the same engine
+    # rather than described in prose. None when no route changes the invoice
+    # currency, because then nothing moves.
+    client_converts: CostBreakdown | None = None
+    # The saving net of that payer cost. Negative means the pair of them are
+    # worse off, which is a thing the UI must be able to say.
+    net_savings: Decimal = Decimal("0")
+    rail: RailBenchmark | None = None

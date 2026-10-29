@@ -210,6 +210,16 @@ summary:focus-visible {
   margin-top: 0.15rem;
 }
 
+.option-caveat {
+  display: block;
+  color: var(--warn);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin-top: 0.45rem;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--warn);
+}
+
 .option:has(input:checked) {
   border-color: var(--accent);
   background: var(--accent-soft);
@@ -426,6 +436,22 @@ summary:focus-visible {
   font-weight: 600;
 }
 
+.savings-client {
+  margin: 0.7rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  padding-left: 0.7rem;
+  border-left: 2px solid var(--warn);
+}
+
+.savings-annual {
+  margin: 0.6rem 0 0;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
 .savings-caveat {
   margin: 0.7rem 0 0;
   font-size: 0.84rem;
@@ -433,6 +459,24 @@ summary:focus-visible {
 }
 
 .savings.neutral { background: var(--surface); border-color: var(--rule); }
+
+/* rail benchmark */
+
+.rail {
+  background: var(--surface);
+}
+
+.rail h2 {
+  font-size: 0.95rem;
+  margin-bottom: 0.4rem;
+}
+
+.rail p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
 
 /* explanation */
 

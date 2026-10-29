@@ -92,6 +92,16 @@ def template_explanation(quote: dict) -> dict:
             f"{'day' if age == 1 else 'days'} old."
         )
 
+    rail = quote.get("rail_comparison")
+    if rail:
+        parts.append(
+            f"{rail['basis']} On this invoice it would take "
+            f"{_money(rail['fee'], rail['currency'])} where PayPal takes "
+            f"{_money(current['total_fees'], receive_currency)}, leaving "
+            f"{_money(rail['net'], rail['currency'])} rather than "
+            f"{_money(current['net_received'], receive_currency)}."
+        )
+
     savings = quote["savings"]
     if savings and not _is_zero(savings):
         optimized = quote["optimized"]
@@ -101,9 +111,66 @@ def template_explanation(quote: dict) -> dict:
             f"{_money(savings, quote['savings_currency'])} more."
         )
 
-    caveats = [line for line in quote["assumptions"] if "4.00%" in line]
-    if not caveats:
-        caveats = [line for line in quote["assumptions"] if "payer" in line.lower()][:1]
+        client = quote.get("client_side")
+        if client and client.get("payer_converts") and not _is_zero(client["total"]):
+            parts.append(
+                "That saving is not free: paying a "
+                f"{client['invoice_currency']} invoice from a "
+                f"{client['payer_currency']} balance costs your client "
+                f"{_money(client['total'], client['currency'])} in conversion "
+                "spread, so the saving is a cost moved rather than removed."
+            )
+
+        net = quote.get("net_savings") or {}
+        magnitude = net.get("magnitude", "0")
+        if net.get("direction") == "worse_off" and not _is_zero(magnitude):
+            parts.append(
+                f"Net of that, the two of you are "
+                f"{_money(magnitude, net['currency'])} worse off on this invoice."
+            )
+        elif net.get("direction") == "better_off" and not _is_zero(magnitude):
+            parts.append(
+                f"Even after that, the two of you are "
+                f"{_money(magnitude, net['currency'])} better off on this invoice."
+            )
+
+        annual = quote.get("savings_if_monthly_for_a_year") or {}
+        if annual and not _is_zero(annual.get("receiver_savings", "0")):
+            savings_currency = quote.get("savings_currency", receive_currency)
+            line = (
+                f"If this invoice repeats monthly, that is "
+                f"{_money(annual['receiver_savings'], savings_currency)} "
+                "more for you over a year"
+            )
+            if not _is_zero(annual.get("client_cost", "0")):
+                line += (
+                    f" and {_money(annual['client_cost'], savings_currency)} "
+                    "more for your client"
+                )
+            net_annual = annual.get("net") or {}
+            if net_annual.get("direction") == "worse_off":
+                line += (
+                    f" — a net "
+                    f"{_money(net_annual['magnitude'], net_annual['currency'])} "
+                    "worse for the two of you"
+                )
+            elif net_annual.get("direction") == "better_off":
+                line += (
+                    f" — a net "
+                    f"{_money(net_annual['magnitude'], net_annual['currency'])} "
+                    "better for the two of you"
+                )
+            parts.append(line + ".")
+
+    caveats = []
+    payment_caveat = (quote.get("payment") or {}).get("caveat")
+    if payment_caveat:
+        caveats.append(payment_caveat)
+
+    payer_notes = [line for line in quote["assumptions"] if "4.00%" in line]
+    if not payer_notes:
+        payer_notes = [line for line in quote["assumptions"] if "payer" in line.lower()][:1]
+    caveats.extend(payer_notes)
 
     cited = []
     for line in current["lines"] + current["payer_lines"]:

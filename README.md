@@ -51,8 +51,16 @@ Pick the amount, the client's country, and how the money arrives. You get:
 - **the effective rate**, because "3.49%" is never the number anyone experiences
 - **a cheaper route, with its cost stated** — re-denominating the invoice into
   USD removes your 3% conversion spread, but it hands the client a USD invoice,
-  and a German client paying in EUR is charged a 4% spread instead. The saving
-  is real. So is the person who pays for it.
+  and a German client paying in EUR is charged a 4% spread instead. That side is
+  priced by the same engine, not described in a footnote: on €5,000 you keep
+  167.24 USD more and your client pays 223.00 USD more, so the pair of you are
+  55.76 USD worse off. Repeated monthly, 669.12 USD a year worse.
+- **a 1% rail, for scale** — the same gross through a hypothetical 1% rail
+  leaves 5,519.25 USD against PayPal's 5,129.07 USD. Labelled hypothetical
+  everywhere, because FeeLens prices no other provider.
+- **the product caveat, before the choice** — "direct send" is PayPal's
+  send-money product, not its invoicing product, and it says so next to the
+  option rather than after the result.
 - **an explanation** in plain language, from the model when one is configured
   and from a deterministic template when it is not
 
@@ -176,6 +184,15 @@ Each of these is a stated reason, not an omission:
   at.
 - **An invoice already in USD.** There is no receiver-side conversion to remove,
   so no cheaper path is claimed.
+- **Other rails.** Wise, Revolut and a bank transfer are not priced — FeeLens
+  holds no sourced rate for any of them. What it does show is a **hypothetical
+  1% rail** on the same gross, so the fee has a scale to be read against. It is
+  labelled hypothetical in the payload, in the template and on the page, and it
+  is not a quote from anyone.
+- **Seller Protection.** It is not a fee, so it is not priced. It is stated
+  instead: the `direct` option carries a caveat that it is PayPal's send-money
+  product, not its invoicing product, and that a payment which does not qualify
+  for Seller Protection may leave little recourse if the client disputes it.
 
 ## Run it
 
@@ -215,11 +232,19 @@ Money is serialised as a **string**, never a float — a float would reintroduce
 at the last moment exactly the rounding drift the engine spends its time
 avoiding.
 
+A quote carries more than the fee. Alongside `current`, `optimized` and
+`savings` it returns `client_side` (the payer's conversion, priced by the same
+engine), `net_savings` (yours minus theirs, signed, with a positive magnitude so
+prose never writes a minus sign the guardrail would read as an invented number),
+`savings_if_monthly_for_a_year`, and `rail_comparison` (the hypothetical 1%
+benchmark, deliberately without a bare `rate_pct` key — the quote states totals,
+not operands).
+
 ## Tests
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest -q        # 189 passing
+python -m pytest -q        # 253 passing
 ```
 
 Pricing tests read frozen fixtures, never the live data files. If they read the
@@ -239,6 +264,15 @@ refresh cannot move it.
   currency received" wording. This account receives USD.
 - The exchange rate is the ECB's, not PayPal's. It is shown with its date and
   flagged once it is more than four days old.
+- A "saving" is never presented as a saving for both sides. The route that
+  removes your conversion spread moves it to the client, so the client's cost is
+  priced by the same engine, carried in the payload, and netted against yours.
+  On these corridors the pair is usually worse off, and the page says so.
+- The 1% rail is a **benchmark, not a provider's price**. FeeLens has no sourced
+  rate for Wise, Revolut or a bank transfer, so it does not claim one.
+- Seller Protection is not modelled. It is flagged next to the `direct` option
+  instead, because a warning that arrives with the result is a warning about a
+  decision already taken.
 - One known gap in the guardrail, stated rather than hidden: a bare integer with
   no currency, decimal point or percent sign is read as a count and allowed if
   small. Counts are capped at 20 to keep that narrow.
