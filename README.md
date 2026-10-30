@@ -168,14 +168,14 @@ credentials at all: the button is disabled, `/api/health` reports
 
 ## What it models
 
-Seven rules, all from PayPal's US merchant fee schedule (last checked
-2026-10-26). Six cite the fee page; the international surcharge cites PayPal's
-October 2026 US merchant fee PDF.
+Six rules, all from PayPal's US merchant fee schedule (last checked
+2026-10-26). Five cite the fee page; the international surcharge cites PayPal's
+October 2026 US merchant fee PDF. Every rule is used by at least one of the three
+products — a rule nothing reaches is a claim the tool does more than it does.
 
-| rule id | rate | fixed (USD received) | borne by |
+| rule id | rate | fixed fee (charged in USD received) | borne by |
 | --- | --- | --- | --- |
 | `commercial_goods_services_transfer` | 2.99% | — | receiver |
-| `commercial_paypal_checkout` | 3.49% | 0.49 USD | receiver |
 | `invoice_checkout` | 3.49% | 0.49 USD | receiver |
 | `invoice_card` | 2.99% | 0.49 USD | receiver |
 | `intl_surcharge_us` | 1.50% | — | receiver |
@@ -303,7 +303,9 @@ refresh cannot move it.
   priced by the same engine, carried in the payload, and netted against yours.
   On these corridors the pair is usually worse off, and the page says so.
 - The 1% rail is a **benchmark, not a provider's price**. FeeLens has no sourced
-  rate for Wise, Revolut or a bank transfer, so it does not claim one.
+  rate for Wise, Revolut or a bank transfer, so it does not claim one. It also
+  reuses this quote's ECB rate, which a real provider would not: the rail number
+  isolates the fee, not the whole route, and it says so wherever it appears.
 - Seller Protection is not modelled. It is flagged next to the `direct` option
   instead, because a warning that arrives with the result is a warning about a
   decision already taken.

@@ -71,7 +71,7 @@ Pick an amount, the client's country, and how the money arrives. FeeLens returns
 deterministic fee engine plus a thin agent layer.
 
 The engine computes every figure from PayPal's published US merchant fee schedule
-— seven rules, each with a source URL, a date checked, and a `verified` flag. The
+— six rules, each with a source URL, a date checked, and a `verified` flag. The
 rates live in one JSON file. Money is handled as `Decimal` and serialised as
 **strings**, never floats, because a float at the last moment reintroduces exactly
 the rounding drift the engine spends its time avoiding.

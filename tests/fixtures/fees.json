@@ -29,42 +29,12 @@
       "notes": "No fixed fee on this rate. This is the rate that applies when a freelancer is paid for goods and services directly rather than through website checkout."
     },
     {
-      "id": "commercial_paypal_checkout",
-      "label": "PayPal Checkout",
-      "type": "percent_plus_fixed",
-      "rate_pct": "3.49",
-      "fixed": {
-        "USD": "0.49"
-      },
-      "applies_to": {
-        "regions": [
-          "US"
-        ],
-        "account_types": [
-          "business"
-        ],
-        "payment_methods": [
-          "paypal_checkout"
-        ],
-        "transaction_types": [
-          "goods_services"
-        ]
-      },
-      "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
-      "verified": true,
-      "notes": "Applies to website checkout. Higher rate, but carries a fixed fee, so the crossover against the 2.99% rate depends on invoice size."
-    },
-    {
       "id": "invoice_checkout",
       "label": "PayPal Invoicing - paid from a PayPal account",
       "type": "percent_plus_fixed",
       "rate_pct": "3.49",
       "fixed": {
-        "USD": "0.49",
-        "EUR": "0.39",
-        "GBP": "0.39",
-        "AUD": "0.59",
-        "PHP": "25.00"
+        "USD": "0.49"
       },
       "applies_to": {
         "regions": [
@@ -82,7 +52,7 @@
       },
       "source_url": "https://www.paypal.com/us/business/paypal-business-fees",
       "verified": true,
-      "notes": "PayPal Invoicing Transaction Rates: 'PayPal Checkout, Pay with Venmo, or PayPal Guest Checkout'. Separate table from Commercial Transaction Rates, and higher than a direct send. INR is absent from the invoicing fixed-fee table, so an INR invoice raises rather than charging zero."
+      "notes": "PayPal Invoicing Transaction Rates: 'PayPal Checkout, Pay with Venmo, or PayPal Guest Checkout'. Separate table from Commercial Transaction Rates, and higher than a direct send. The fixed fee is charged on the currency RECEIVED, and this account receives USD, so 0.49 USD applies whatever the invoice is denominated in - including INR, which PayPal's invoicing fixed-fee table does not list. Only USD is mapped here; a deployment receiving another currency raises rather than charging zero."
     },
     {
       "id": "invoice_card",
@@ -90,11 +60,7 @@
       "type": "percent_plus_fixed",
       "rate_pct": "2.99",
       "fixed": {
-        "USD": "0.49",
-        "EUR": "0.39",
-        "GBP": "0.39",
-        "AUD": "0.59",
-        "PHP": "25.00"
+        "USD": "0.49"
       },
       "applies_to": {
         "regions": [

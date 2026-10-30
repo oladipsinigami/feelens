@@ -155,6 +155,12 @@ def test_re_denominating_without_converting_would_model_a_smaller_invoice(fees, 
 
 
 def test_fixed_fee_is_charged_in_the_currency_received(fees, rates):
+    """Not the invoice currency, and not the client's.
+
+    PayPal's table is headed "based on currency received", so the 0.49 is a USD
+    figure even though the invoice is in GBP. Charging the GBP row would be
+    inventing a conversion PayPal does not perform.
+    """
     tx = Transaction(
         amount=Decimal("2000"),
         invoice_currency="GBP",
@@ -163,19 +169,19 @@ def test_fixed_fee_is_charged_in_the_currency_received(fees, rates):
         receive_currency="USD",
         region="US",
         account_type="business",
-        transaction_type="goods_services",
-        payment_method="paypal_checkout",
+        transaction_type="invoice",
+        payment_method="card",
     )
     breakdown = calculate_effective_cost(tx, "current", fees, rates)
 
-    fixed = [line for line in breakdown.lines if line.rule_id == "commercial_paypal_checkout"][0]
+    fixed = [line for line in breakdown.lines if line.rule_id == "invoice_card"][0]
     assert fixed.fixed_amount == Decimal("0.49")
     assert fixed.fixed_currency == "USD"
-    # Fixture rate 1.320076: 69.80 -> 92.14, 30.00 -> 39.60, 60.00 -> 79.20, plus
-    # the 0.49 fixed fee. Summed after rounding, so 211.43 rather than the
-    # 211.44 that converting the 159.80 EUR sum would give.
-    assert breakdown.total_fees == Decimal("211.43")
-    assert breakdown.net_received == Decimal("2428.72")
+    # Fixture rate 1.320076: 59.80 -> 78.94, 30.00 -> 39.60, 60.00 -> 79.20, plus
+    # the 0.49 fixed fee. Summed after rounding, so 198.23 rather than the
+    # 198.24 that converting the 149.80 GBP sum would give.
+    assert breakdown.total_fees == Decimal("198.23")
+    assert breakdown.net_received == Decimal("2441.92")
 
 
 def test_domestic_payment_carries_no_international_surcharge(fees, rates):
@@ -280,12 +286,12 @@ def test_fixed_fee_missing_for_the_currency_received_raises_instead_of_charging_
         receive_currency="EUR",
         region="US",
         account_type="business",
-        transaction_type="goods_services",
-        payment_method="paypal_checkout",
+        transaction_type="invoice",
+        payment_method="card",
     )
 
     with pytest.raises(FeeConfigError) as raised:
         calculate_effective_cost(tx, "current", fees, rates)
 
     assert "EUR" in str(raised.value)
-    assert "commercial_paypal_checkout" in str(raised.value)
+    assert "invoice_card" in str(raised.value)

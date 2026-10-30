@@ -89,8 +89,10 @@ def rail_payload(rail) -> dict:
         "currency": rail.currency,
         "basis": (
             f"A hypothetical rail charging {rail.rate_pct}% of the same gross, "
-            "for scale only. FeeLens does not price any other provider and this "
-            "is not a quote."
+            "for scale only. It assumes the same exchange rate this quote used; "
+            "a real provider sets its own, so this isolates the fee and not the "
+            "whole route. FeeLens does not price any other provider and this is "
+            "not a quote."
         ),
     }
 

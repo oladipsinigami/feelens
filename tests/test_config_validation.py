@@ -64,7 +64,7 @@ def test_unknown_condition_name_is_rejected_instead_of_dropping_the_fee(tmp_path
 
 def test_misspelled_scope_key_is_rejected_instead_of_broadening_the_rule(tmp_path):
     def mutate(raw):
-        applies = rule(raw, "commercial_paypal_checkout")["applies_to"]
+        applies = rule(raw, "invoice_card")["applies_to"]
         applies["payment_method"] = applies.pop("payment_methods")
 
     with pytest.raises(FeeConfigError) as raised:
@@ -75,7 +75,7 @@ def test_misspelled_scope_key_is_rejected_instead_of_broadening_the_rule(tmp_pat
 
 def test_duplicate_rule_ids_are_rejected(tmp_path):
     def mutate(raw):
-        rule(raw, "commercial_paypal_checkout")["id"] = "commercial_goods_services_transfer"
+        rule(raw, "invoice_card")["id"] = "commercial_goods_services_transfer"
 
     with pytest.raises(FeeConfigError) as raised:
         load_fees(config_with(tmp_path, mutate))
@@ -85,7 +85,7 @@ def test_duplicate_rule_ids_are_rejected(tmp_path):
 
 def test_percent_plus_fixed_without_any_fixed_fee_is_rejected(tmp_path):
     def mutate(raw):
-        rule(raw, "commercial_paypal_checkout")["fixed"] = {}
+        rule(raw, "invoice_card")["fixed"] = {}
 
     with pytest.raises(FeeConfigError) as raised:
         load_fees(config_with(tmp_path, mutate))

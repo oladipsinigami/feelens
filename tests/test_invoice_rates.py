@@ -112,6 +112,33 @@ def test_card_funded_invoice_costs_exactly_the_fixed_fee_more_than_a_direct_send
     assert card_invoice.total_fees - direct.total_fees == Decimal("0.49")
 
 
+def test_an_inr_invoice_is_charged_the_usd_fixed_fee_not_refused(fees, rates):
+    """The fixed fee follows the currency RECEIVED, not the invoice currency.
+
+    PayPal's invoicing fixed-fee table has no INR row, and an earlier version of
+    the config concluded from that absence that an INR invoice could not be
+    priced. It can: this account receives USD, so the USD row applies. The
+    consequence of getting this backwards is a corridor that refuses to quote a
+    perfectly ordinary invoice.
+    """
+    breakdown = calculate_effective_cost(
+        invoice_tx("paypal_checkout", currency="INR", amount="200.00"),
+        "current",
+        fees,
+        rates,
+    )
+
+    fixed = [line for line in breakdown.lines if line.rule_id == "invoice_checkout"][0]
+    assert fixed.fixed_amount == Decimal("0.49")
+    assert fixed.fixed_currency == "USD"
+    # Fixture INR rate 0.010382: 6.98 -> 0.07, 3.00 -> 0.03, 6.00 -> 0.06, plus
+    # 0.49 fixed against a 2.08 USD gross. The fixed fee is most of the cost,
+    # which is the point of showing the effective rate.
+    assert breakdown.total_fees == Decimal("0.65")
+    assert breakdown.gross_received == Decimal("2.08")
+    assert breakdown.effective_rate_pct == Decimal("31.25")
+
+
 def test_paypal_funded_invoice_costs_more_than_a_direct_send(fees, rates):
     direct = calculate_effective_cost(direct_tx(), "current", fees, rates)
     invoice = calculate_effective_cost(invoice_tx("paypal_checkout"), "current", fees, rates)
