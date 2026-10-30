@@ -4,8 +4,8 @@ Modelling decisions that are assumptions rather than facts, surfaced so the UI
 can display them:
 
 - Percentage fees are applied to the invoice (payment) currency amount, then
-  converted once into the receiving currency. Real PayPal assessment order is
-  not published, so this is a simplification.
+  converted into the receiving currency. Real PayPal assessment order is not
+  published, so this is a simplification.
 - Fixed fees are denominated in the currency RECEIVED, per PayPal's
   "based on currency received" wording, and are never converted.
 - Every fee line is REPORTED in the receiving currency, and a total is the sum

@@ -50,7 +50,7 @@ KNOWN_BORNE_BY = frozenset({"receiver", "payer"})
 STALENESS_THRESHOLD_DAYS = 4
 
 ASSUMPTIONS = [
-    "Percentage fees are applied to the invoice amount, then converted once into the receiving currency. PayPal does not publish its assessment order.",
+    "Percentage fees are applied to the invoice amount, then converted into the receiving currency. PayPal does not publish its assessment order.",
     "Fixed fees are charged in the currency received, per PayPal's 'based on currency received' wording.",
     "Each fee line is converted to the receiving currency and rounded to the cent before the lines are summed, so a total can differ by one cent from converting their sum. The lines on screen are the ones the total is made of.",
     "The FX rate is an ECB euro reference rate cross-rated through USD, not a PayPal rate.",
