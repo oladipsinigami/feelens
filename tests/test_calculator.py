@@ -12,6 +12,15 @@ SNAPSHOT_DATE = "2026-10-02"
 
 
 def test_percent_fees_are_computed_in_the_invoice_currency(fees, rates):
+    """Assessed in EUR, reported in USD.
+
+    Two different things, and both matter. The percentage is applied to the
+    invoice amount, which is the figure PayPal's own statement shows; the line
+    is then reported in the currency the receiver ends up holding, so the table
+    of lines adds up to the total beneath it. Keeping both is what makes the
+    model checkable against a real PayPal statement without the column
+    disagreeing with its own total.
+    """
     tx = Transaction(
         amount=Decimal("5000"),
         invoice_currency="EUR",
@@ -25,14 +34,51 @@ def test_percent_fees_are_computed_in_the_invoice_currency(fees, rates):
     )
     breakdown = calculate_effective_cost(tx, "current", fees, rates)
 
-    assert [(line.rule_id, line.amount, line.currency) for line in breakdown.lines] == [
-        ("commercial_goods_services_transfer", Decimal("149.50"), "EUR"),
-        ("intl_surcharge_us", Decimal("75.00"), "EUR"),
-        ("fx_spread_balance_conversion", Decimal("150.00"), "EUR"),
+    # Frozen fixture rate 1.1225: 149.50 -> 167.81, 75.00 -> 84.19, 150.00 -> 168.38.
+    assert [
+        (line.rule_id, line.assessed_amount, line.assessed_currency, line.amount, line.currency)
+        for line in breakdown.lines
+    ] == [
+        ("commercial_goods_services_transfer", Decimal("149.50"), "EUR", Decimal("167.81"), "USD"),
+        ("intl_surcharge_us", Decimal("75.00"), "EUR", Decimal("84.19"), "USD"),
+        ("fx_spread_balance_conversion", Decimal("150.00"), "EUR", Decimal("168.38"), "USD"),
     ]
     assert breakdown.total_fees == Decimal("420.38")
     assert breakdown.total_fees_currency == "USD"
     assert breakdown.net_received == Decimal("5192.12")
+
+
+def test_the_fee_column_adds_up_to_the_total(fees, rates):
+    """The one arithmetic check a reader will actually perform.
+
+    Every line is converted to the receiving currency before it is summed, so
+    the column agrees with the total. Converting the sum instead is a cent or
+    two cheaper to write and makes the table look wrong.
+    """
+
+    def tx_for(transaction_type, payment_method):
+        return Transaction(
+            amount=Decimal("5000"),
+            invoice_currency="EUR",
+            payer_currency="EUR",
+            payer_region="DE",
+            receive_currency="USD",
+            region="US",
+            account_type="business",
+            transaction_type=transaction_type,
+            payment_method=payment_method,
+        )
+
+    for tx in (
+        tx_for("goods_services", "goods_services_transfer"),
+        tx_for("invoice", "paypal_checkout"),
+        tx_for("invoice", "card"),
+    ):
+        breakdown = calculate_effective_cost(tx, "current", fees, rates)
+        column = sum(
+            (line.amount + line.fixed_amount for line in breakdown.lines), Decimal("0")
+        )
+        assert column == breakdown.total_fees, tx.payment_method
 
 
 def test_international_surcharge_applies_even_when_currency_matches(fees, rates):
@@ -125,8 +171,11 @@ def test_fixed_fee_is_charged_in_the_currency_received(fees, rates):
     fixed = [line for line in breakdown.lines if line.rule_id == "commercial_paypal_checkout"][0]
     assert fixed.fixed_amount == Decimal("0.49")
     assert fixed.fixed_currency == "USD"
-    assert breakdown.total_fees == Decimal("211.44")
-    assert breakdown.net_received == Decimal("2428.71")
+    # Fixture rate 1.320076: 69.80 -> 92.14, 30.00 -> 39.60, 60.00 -> 79.20, plus
+    # the 0.49 fixed fee. Summed after rounding, so 211.43 rather than the
+    # 211.44 that converting the 159.80 EUR sum would give.
+    assert breakdown.total_fees == Decimal("211.43")
+    assert breakdown.net_received == Decimal("2428.72")
 
 
 def test_domestic_payment_carries_no_international_surcharge(fees, rates):

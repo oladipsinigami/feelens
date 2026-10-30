@@ -35,13 +35,29 @@ def _is_zero(value) -> bool:
 
 
 def _charge(line: dict) -> str:
+    """One fee line, in the currency the receiver ends up holding.
+
+    The assessed figure is only mentioned when the invoice currency differs,
+    because repeating it when it is the same number twice is noise. When it does
+    differ it is the number PayPal's statement will show, so leaving it out
+    would make the model harder to check against reality.
+    """
+    amount = _money(line["amount"], line["currency"])
+    assessed = line.get("assessed_amount")
+    if (
+        assessed
+        and line.get("assessed_currency")
+        and line["assessed_currency"] != line["currency"]
+    ):
+        amount += f" (assessed on {_money(assessed, line['assessed_currency'])})"
+
     fixed = line["fixed_amount"]
     if fixed and not _is_zero(fixed):
         return (
-            f"{line['label']} at {_money(line['amount'], line['currency'])} plus "
+            f"{line['label']} at {amount} plus "
             f"{_money(fixed, line['fixed_currency'])} fixed ({line['rule_id']})"
         )
-    return f"{line['label']} at {_money(line['amount'], line['currency'])} ({line['rule_id']})"
+    return f"{line['label']} at {amount} ({line['rule_id']})"
 
 
 def _join(items: list) -> str:

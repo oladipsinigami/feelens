@@ -8,6 +8,12 @@ can display them:
   not published, so this is a simplification.
 - Fixed fees are denominated in the currency RECEIVED, per PayPal's
   "based on currency received" wording, and are never converted.
+- Every fee line is REPORTED in the receiving currency, and a total is the sum
+  of the rounded lines rather than a conversion of their sum. The two differ by
+  a cent or two, and the sum of the lines is the one that has to agree with the
+  column above it. The invoice-currency amount a percentage was applied to is
+  kept alongside as `assessed_amount`, because that is the figure PayPal's own
+  statement will show.
 - Totals are expressed in the receiving currency, because that is the number a
   freelancer actually ends up with.
 - An FX spread is modelled as a percentage of the invoice amount rather than of
@@ -105,6 +111,15 @@ class FeeConfig:
 
 @dataclass(frozen=True)
 class FeeLine:
+    """One fee, reported in the currency the receiver ends up holding.
+
+    `amount` and `fixed_amount` are both in the receiving currency, so a table
+    of lines adds up to the total beneath it. `assessed_amount` is the same
+    percentage expressed in the invoice currency — the basis PayPal applied the
+    rate to — and is kept because a reader checking the model against a PayPal
+    statement will see that figure, not the converted one.
+    """
+
     rule_id: str
     label: str
     amount: Decimal
@@ -115,6 +130,8 @@ class FeeLine:
     verified: bool
     borne_by: str = "receiver"
     tier: str = MODELLED
+    assessed_amount: Decimal = Decimal("0")
+    assessed_currency: str = ""
 
 
 @dataclass

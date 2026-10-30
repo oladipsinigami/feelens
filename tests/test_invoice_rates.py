@@ -66,13 +66,18 @@ def direct_tx(amount="5000"):
 def test_invoice_paid_from_paypal_uses_the_invoicing_rate(fees, rates):
     breakdown = calculate_effective_cost(invoice_tx("paypal_checkout"), "current", fees, rates)
 
-    assert [(line.rule_id, line.amount) for line in breakdown.lines] == [
-        ("invoice_checkout", Decimal("174.50")),  # 3.49% of 5,000
-        ("intl_surcharge_us", Decimal("75.00")),  # 1.50%, applies to invoices too
-        ("fx_spread_balance_conversion", Decimal("150.00")),  # 3.00%
+    # Assessed in EUR (the invoice currency), reported in USD (what is received).
+    # Fixture rate 1.1225: 174.50 -> 195.88, 75.00 -> 84.19, 150.00 -> 168.38.
+    assert [
+        (line.rule_id, line.assessed_amount, line.amount)
+        for line in breakdown.lines
+    ] == [
+        ("invoice_checkout", Decimal("174.50"), Decimal("195.88")),  # 3.49% of 5,000
+        ("intl_surcharge_us", Decimal("75.00"), Decimal("84.19")),  # 1.50%, invoices too
+        ("fx_spread_balance_conversion", Decimal("150.00"), Decimal("168.38")),  # 3.00%
     ]
-    assert breakdown.total_fees == Decimal("448.93")  # 399.50 EUR -> USD, plus 0.49 fixed
-    assert breakdown.net_received == Decimal("5163.57")
+    assert breakdown.total_fees == Decimal("448.94")  # the lines above, plus 0.49 fixed
+    assert breakdown.net_received == Decimal("5163.56")
 
 
 def test_invoice_paid_by_card_uses_the_card_rate(fees, rates):
@@ -83,7 +88,8 @@ def test_invoice_paid_by_card_uses_the_card_rate(fees, rates):
         "intl_surcharge_us",
         "fx_spread_balance_conversion",
     ]
-    assert breakdown.lines[0].amount == Decimal("149.50")  # 2.99% of 5,000
+    assert breakdown.lines[0].assessed_amount == Decimal("149.50")  # 2.99% of 5,000
+    assert breakdown.lines[0].amount == Decimal("167.81")  # reported in USD
 
 
 def test_card_funded_invoice_still_pays_the_fixed_fee(fees, rates):
@@ -110,8 +116,15 @@ def test_paypal_funded_invoice_costs_more_than_a_direct_send(fees, rates):
     direct = calculate_effective_cost(direct_tx(), "current", fees, rates)
     invoice = calculate_effective_cost(invoice_tx("paypal_checkout"), "current", fees, rates)
 
-    # 0.50% of 5,000 EUR (25.00) converted, plus the 0.49 USD fixed fee.
-    assert invoice.total_fees - direct.total_fees == Decimal("28.55")
+    # The rate difference is exactly 0.50% of 5,000 EUR = 25.00 EUR, plus the
+    # 0.49 USD fixed fee. Stated in the currency it is assessed in, because that
+    # is the precise claim; the totals below are sums of separately rounded
+    # lines and can differ from the converted 28.55 by a cent.
+    difference = invoice.lines[0].assessed_amount - direct.lines[0].assessed_amount
+    assert difference == Decimal("25.00")
+    assert abs(
+        (invoice.total_fees - direct.total_fees) - (Decimal("25.00") * EUR_USD + Decimal("0.49"))
+    ) <= Decimal("0.01")
 
 
 # --- scope ----------------------------------------------------------------

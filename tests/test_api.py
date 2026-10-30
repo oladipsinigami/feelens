@@ -65,8 +65,10 @@ def test_config_publishes_the_date_the_rates_were_checked(client):
 def test_invoice_quote_matches_the_engine(client):
     body = quote(client).json()
 
-    assert body["current"]["total_fees"] == "448.93"
-    assert body["current"]["net_received"] == "5163.57"
+    # Sum of the rounded lines: 195.88 + 84.19 + 168.38 + 0.49 at the frozen
+    # fixture rate of 1.1225.
+    assert body["current"]["total_fees"] == "448.94"
+    assert body["current"]["net_received"] == "5163.56"
     assert body["current"]["total_fees_currency"] == "USD"
 
 
@@ -83,7 +85,11 @@ def test_direct_send_is_cheaper_than_a_paypal_invoice(client):
     invoice = quote(client, payment="invoice_paypal").json()["current"]
 
     assert direct["total_fees"] == "420.38"
-    assert Decimal(invoice["total_fees"]) - Decimal(direct["total_fees"]) == Decimal("28.55")
+    # 0.50% of 5,000 EUR = 25.00 EUR, plus the 0.49 USD fixed fee: 28.55 USD.
+    # Each line is rounded before it is summed, so the two totals can differ
+    # from that by a cent; the claim is the rate, not the rounding.
+    difference = Decimal(invoice["total_fees"]) - Decimal(direct["total_fees"])
+    assert abs(difference - Decimal("28.55")) <= Decimal("0.01")
 
 
 def test_every_line_is_modelled_and_sourced(client):

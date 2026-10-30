@@ -30,10 +30,10 @@ same day:
 | How it arrives | PayPal keeps | You keep |
 | --- | --- | --- |
 | Client sends money directly | 417.57 USD | 5,157.43 USD |
-| Invoice, paid from a PayPal account | **445.93 USD** | **5,129.07 USD** |
+| Invoice, paid from a PayPal account | **445.94 USD** | **5,129.06 USD** |
 | Invoice, paid by card or wallet | 418.06 USD | 5,156.94 USD |
 
-**28.36 USD** of difference that exists purely because of a funding choice nobody
+**28.37 USD** of difference that exists purely because of a funding choice nobody
 tells you about in advance. That is a design choice, not a fact — and it can be
 read before the invoice is sent rather than after.
 
@@ -48,10 +48,10 @@ Pick an amount, the client's country, and how the money arrives. FeeLens returns
 - **a cheaper route with its cost stated** — re-denominating the invoice into USD
   removes the receiver's 3% conversion spread, but it hands a German client a USD
   invoice and charges them a 4% spread instead. Both sides are priced by the same
-  engine, so the app can say what it actually is: you keep 167.24 USD more, your
-  client pays 223.00 USD more, and the pair of you end up **55.76 USD worse off**
-  — 669.12 USD a year if the invoice repeats monthly.
-- **a 1% rail for scale** — 55.75 USD against PayPal's 445.93, labelled
+  engine, so the app can say what it actually is: you keep 167.25 USD more, your
+  client pays 223.00 USD more, and the pair of you end up **55.75 USD worse off**
+  — 669.00 USD a year if the invoice repeats monthly.
+- **a 1% rail for scale** — 55.75 USD against PayPal's 445.94, labelled
   hypothetical everywhere, because FeeLens prices no other provider
 - **an explanation** in plain language, from a language model when one is
   configured and from a deterministic template when it is not
@@ -78,7 +78,7 @@ never shown `3.49` and `1.50` cannot add them. After generation, the answer is
 checked against the tool output:
 
 1. **Number provenance** — every figure in the prose must appear in a tool
-   result. "About 5,200" when the engine said 5,129.07 is rejected, not corrected.
+   result. "About 5,200" when the engine said 5,129.06 is rejected, not corrected.
 2. **Rule citation** — at least one rule id must be cited, and every cited id must
    be one that appeared in the quote.
 3. **No observed-data claims** — modelled figures may not be called live,
@@ -177,12 +177,12 @@ then reload. A cold free-tier model takes 20–60s and will eat your runtime.
 
 | time | on screen | say |
 | --- | --- | --- |
-| 0:00–0:15 | README table | "A freelancer invoices a client for €5,000. PayPal keeps 417.57 USD, or 445.93 USD, or 418.06 USD — same money, same client, same day. The difference is which button the client presses. Nobody is told before the invoice is sent." |
+| 0:00–0:15 | README table | "A freelancer invoices a client for €5,000. PayPal keeps 417.57 USD, or 445.94 USD, or 418.06 USD — same money, same client, same day. The difference is which button the client presses. Nobody is told before the invoice is sent." |
 | 0:15–0:35 | app, amount €5,000, corridor EUR, product = invoice paid from PayPal | "FeeLens prices it before you send. Five corridors, three payment products." |
-| 0:35–0:55 | three product cards | "28.36 USD apart. And the invoice paid from a PayPal account is the *expensive* one — the opposite of what you'd guess." |
+| 0:35–0:55 | three product cards | "28.37 USD apart. And the invoice paid from a PayPal account is the *expensive* one — the opposite of what you'd guess." |
 | 0:55–1:20 | fee lines | "Every line carries its rule id and a link to the page that states it. 3.49% product, 1.50% international surcharge, 3.00% conversion spread. The effective rate is 8.00%, not 3.49%." |
-| 1:20–1:45 | scroll to savings + client side | "It suggests a cheaper route — invoice in USD, drop the conversion spread. You keep 167.24 USD more. But your client is now paying a USD invoice from a EUR balance, and that costs them 223.00. The pair of you are 55.76 USD worse off, 669.12 a year." |
-| 1:45–2:00 | rail card | "And a scale: a hypothetical 1% rail would take 55.75 instead of 445.93. Labelled hypothetical, because FeeLens prices no other provider." |
+| 1:20–1:45 | scroll to savings + client side | "It suggests a cheaper route — invoice in USD, drop the conversion spread. You keep 167.25 USD more. But your client is now paying a USD invoice from a EUR balance, and that costs them 223.00. The pair of you are 55.75 USD worse off, 669.00 a year." |
+| 1:45–2:00 | rail card | "And a scale: a hypothetical 1% rail would take 55.75 instead of 445.94. Labelled hypothetical, because FeeLens prices no other provider." |
 | 2:00–2:30 | explanation panel | "The explanation is from a model that has no arithmetic. Four tools, no rates in its prompt, and every number in its answer is checked against the tool output afterwards. If it invents a figure, the answer is thrown away and a deterministic template is served instead." |
 | 2:30–2:45 | health endpoint or README | "Every figure is modelled from PayPal's published US fee schedule, with sources and dates. Not a PayPal quote, not financial advice. It's the fee, before you commit to it." |
 

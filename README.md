@@ -33,14 +33,14 @@ The cost of getting it wrong is not obvious. On that €5,000 invoice:
 | How the money arrives | PayPal keeps | You keep | Effective rate |
 | --- | --- | --- | --- |
 | Client sends money directly | 417.57 USD | 5,157.43 USD | 7.49% |
-| Invoice, paid from a PayPal account | **445.93 USD** | **5,129.07 USD** | **8.00%** |
+| Invoice, paid from a PayPal account | **445.94 USD** | **5,129.06 USD** | **8.00%** |
 | Invoice, paid by card or wallet | 418.06 USD | 5,156.94 USD | 7.50% |
 
-Same money, same client, same day. **28.36 USD** apart, purely because of which
+Same money, same client, same day. **28.37 USD** apart, purely because of which
 button the client presses. Nobody is told this before the invoice is sent.
 
 And the drag is worst where it matters most. A 200 INR invoice through PayPal
-Invoicing costs **31.43%** — not because any rate is high, but because a fixed
+Invoicing costs **30.95%** — not because any rate is high, but because a fixed
 fee of 0.49 USD is 23% of a 2.10 USD payment.
 
 ## What it does
@@ -55,10 +55,10 @@ Pick the amount, the client's country, and how the money arrives. You get:
   USD removes your 3% conversion spread, but it hands the client a USD invoice,
   and a German client paying in EUR is charged a 4% spread instead. That side is
   priced by the same engine, not described in a footnote: on €5,000 you keep
-  167.24 USD more and your client pays 223.00 USD more, so the pair of you are
-  55.76 USD worse off. Repeated monthly, 669.12 USD a year worse.
+  167.25 USD more and your client pays 223.00 USD more, so the pair of you are
+  55.75 USD worse off. Repeated monthly, 669.00 USD a year worse.
 - **a 1% rail, for scale** — the same gross through a hypothetical 1% rail
-  leaves 5,519.25 USD against PayPal's 5,129.07 USD. Labelled hypothetical
+  leaves 5,519.25 USD against PayPal's 5,129.06 USD. Labelled hypothetical
   everywhere, because FeeLens prices no other provider.
 - **the product caveat, before the choice** — "direct send" is PayPal's
   send-money product, not its invoicing product, and it says so next to the
@@ -85,7 +85,7 @@ them.
 Then the answer is checked, after generation, against the tool output:
 
 1. **Number provenance.** Every figure in the prose must appear in a tool
-   result. "About 5,200" when the engine said 5,129.07 is rejected — not
+   result. "About 5,200" when the engine said 5,129.06 is rejected — not
    corrected, rejected.
 2. **Rule citation.** At least one rule id must be cited, and every cited id
    must be one that appeared in the quote.
@@ -273,8 +273,14 @@ refresh cannot move it.
 
 - Every figure is a **modelled estimate** from PayPal's published US fee
   schedule. It is not a PayPal quote and not financial advice.
-- Percentage fees are applied to the invoice amount and converted once; PayPal
-  does not publish its assessment order, so that is a documented simplification.
+- Percentage fees are applied to the invoice amount and converted into the
+  receiving currency; PayPal does not publish its assessment order, so that is a
+  documented simplification.
+- Each fee line is converted and rounded to the cent before the lines are
+  summed, so the column on screen adds up to the total beneath it. A total can
+  therefore differ by one cent from converting the sum instead. The assessed
+  invoice-currency figure is kept on every line and shown under it, because that
+  is the number PayPal's own statement will carry.
 - Fixed fees are charged in the currency received, per PayPal's "based on
   currency received" wording. This account receives USD.
 - The exchange rate is the ECB's, not PayPal's. It is shown with its date and

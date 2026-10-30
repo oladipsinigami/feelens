@@ -21,10 +21,15 @@ def line_payload(line) -> dict:
     return {
         "rule_id": line.rule_id,
         "label": line.label,
+        # Both in the receiving currency, so the table adds up to its total.
         "amount": str(line.amount),
         "currency": line.currency,
         "fixed_amount": str(line.fixed_amount),
         "fixed_currency": line.fixed_currency,
+        # The invoice-currency figure the percentage was applied to, kept so a
+        # reader can match the model against PayPal's own statement.
+        "assessed_amount": str(line.assessed_amount),
+        "assessed_currency": line.assessed_currency,
         "source_url": line.source_url,
         "verified": line.verified,
         "borne_by": line.borne_by,

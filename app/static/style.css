@@ -407,6 +407,15 @@ summary:focus-visible {
   margin-top: 0.15rem;
 }
 
+/* The invoice-currency basis a percentage was applied to. Secondary, because
+   the column above it is the number that matters to the reader's net. */
+.assessed {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--faint);
+  margin-top: 0.1rem;
+}
+
 .zero { color: var(--faint); }
 
 .fx-note {

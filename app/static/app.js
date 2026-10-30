@@ -407,15 +407,25 @@ function renderBreakdown(tbody, lines) {
     rule.textContent = line.rule_id;
     fee.append(label, rule);
 
-    const percent = document.createElement("td");
-    percent.className = "num";
-    if (isZero(line.amount)) {
-      percent.textContent = "—";
-      percent.classList.add("zero");
-    } else {
-      percent.textContent = money(line.amount, line.currency);
+    // The percentage is assessed on the invoice amount, but the line is shown in
+    // the currency the reader ends up holding. When those differ, the basis is
+    // kept visible underneath: it is the figure PayPal's own statement shows,
+    // so hiding it would make the model harder to check.
+    if (line.assessed_currency && line.assessed_currency !== line.currency) {
+      const basis = document.createElement("span");
+      basis.className = "assessed";
+      basis.textContent = `assessed on ${money(line.assessed_amount, line.assessed_currency)}`;
+      fee.append(basis);
     }
 
+    const amount = document.createElement("td");
+    amount.className = "num";
+    if (isZero(line.amount)) {
+      amount.textContent = "—";
+      amount.classList.add("zero");
+    } else {
+      amount.textContent = money(line.amount, line.currency);
+    }
     const fixed = document.createElement("td");
     fixed.className = "num";
     if (isZero(line.fixed_amount)) {
@@ -438,7 +448,7 @@ function renderBreakdown(tbody, lines) {
       source.textContent = "—";
     }
 
-    row.append(fee, percent, fixed, source);
+    row.append(fee, amount, fixed, source);
     tbody.append(row);
   }
 }

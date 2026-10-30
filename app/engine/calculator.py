@@ -52,6 +52,7 @@ STALENESS_THRESHOLD_DAYS = 4
 ASSUMPTIONS = [
     "Percentage fees are applied to the invoice amount, then converted once into the receiving currency. PayPal does not publish its assessment order.",
     "Fixed fees are charged in the currency received, per PayPal's 'based on currency received' wording.",
+    "Each fee line is converted to the receiving currency and rounded to the cent before the lines are summed, so a total can differ by one cent from converting their sum. The lines on screen are the ones the total is made of.",
     "The FX rate is an ECB euro reference rate cross-rated through USD, not a PayPal rate.",
     "Fees marked as borne by the payer are shown separately and are not deducted from your net.",
     "Modelled figures only. No PayPal response has been observed.",
@@ -288,30 +289,40 @@ def calculate_effective_cost(
     payer_lines = []
 
     for rule in rules:
-        percent = _money(tx.amount * rule.rate_pct / Decimal(100))
+        # Rounded once, in the currency the fee is assessed in, because that is
+        # the figure PayPal's statement shows.
+        assessed = _money(tx.amount * rule.rate_pct / Decimal(100))
         line = FeeLine(
             rule_id=rule.id,
             label=rule.label,
-            amount=percent,
-            currency=invoice,
+            # And converted per line rather than at the end. Converting the sum
+            # instead would make the column above the total disagree with it by
+            # a cent or two, which reads as an arithmetic error to anyone who
+            # adds the column up — the one check a reader will actually perform.
+            amount=_money(assessed * rate),
+            currency=receive,
             fixed_amount=_money(_fixed_for(rule, receive)),
             fixed_currency=receive,
             source_url=rule.source_url,
             verified=rule.verified,
             borne_by=rule.borne_by,
             tier=MODELLED,
+            assessed_amount=assessed,
+            assessed_currency=invoice,
         )
         (payer_lines if rule.borne_by == "payer" else receiver_lines).append(line)
 
-    def total_of(lines) -> tuple:
-        percent = sum((line.amount for line in lines), Decimal("0"))
-        fixed = sum((line.fixed_amount for line in lines), Decimal("0"))
-        return _money(percent * rate), fixed
+    def total_of(lines) -> Decimal:
+        """The sum of the rounded lines, which is what the table displays.
 
-    receiver_percent, receiver_fixed = total_of(receiver_lines)
-    payer_percent, payer_fixed = total_of(payer_lines)
+        Quantised again so an empty side reports `0.00` rather than `0`: a
+        money field that changes shape when it is zero is a money field some
+        consumer will eventually format wrongly.
+        """
+        return _money(sum((line.amount + line.fixed_amount for line in lines), Decimal("0")))
 
-    total_fees = receiver_percent + receiver_fixed
+    total_fees = total_of(receiver_lines)
+    payer_side_total = total_of(payer_lines)
     gross = _money(tx.amount * rate)
     net = gross - total_fees
     effective = (
@@ -336,7 +347,7 @@ def calculate_effective_cost(
         fx_snapshot_date=snapshot["retrieved_date"],
         assumptions=assumptions,
         payer_lines=payer_lines,
-        payer_side_total=payer_percent + payer_fixed,
+        payer_side_total=payer_side_total,
         payer_side_currency=receive,
         fx_age_days=age,
         fx_stale=warning is not None,
