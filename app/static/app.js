@@ -169,6 +169,9 @@ async function onSubmit(event) {
     if (!response.ok) throw new Error(data.detail || "Could not calculate that.");
 
     render(data);
+    // Deliberately after the quote, and not awaited: the quote is the product,
+    // and a slow or failed comparison must not keep the button disabled.
+    loadProducts();
   } catch (error) {
     showError(error.message);
   } finally {
@@ -221,6 +224,114 @@ function render(data) {
   renderPayPalCard(data);
   resetExplanation();
   $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* --- the same invoice through every product ------------------------------ */
+
+/* The argument this project makes is a comparison, so the comparison is on the
+ * page rather than left for the reader to assemble by clicking three times.
+ * Clicking a card selects that product and re-prices the whole page, which is
+ * the demonstration: nothing changes but the button the client presses.
+ *
+ * Every figure comes from /api/products, which runs the same engine as
+ * /api/quote. Nothing here is computed in the browser. */
+
+async function loadProducts() {
+  const selected = document.querySelector('input[name="payment"]:checked');
+  try {
+    const response = await fetch("/api/products", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amount: $("amount").value,
+        corridor: $("corridor").value,
+      }),
+    });
+    if (!response.ok) throw new Error("no comparison");
+    const data = await response.json();
+    renderProducts(data, selected ? selected.value : null);
+  } catch (problem) {
+    // A missing comparison is not a missing quote. The card hides rather than
+    // showing an empty grid, because an empty grid reads as three free options.
+    $("products-card").hidden = true;
+  }
+}
+
+function renderProducts(data, selectedId) {
+  const card = $("products-card");
+  const grid = $("product-grid");
+  grid.replaceChildren();
+
+  const priced = data.products.filter((row) => row.priced);
+  if (priced.length < 2) {
+    card.hidden = true;
+    return;
+  }
+
+  card.hidden = false;
+  $("products-note").textContent = data.note;
+
+  for (const row of data.products) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "product";
+    if (row.payment.id === selectedId) button.classList.add("current");
+    button.disabled = !row.priced;
+
+    const label = document.createElement("span");
+    label.className = "product-label";
+    label.textContent = row.payment.label;
+    button.append(label);
+
+    // The lowest fee is named, not implied. It is a fact about the numbers, not
+    // a recommendation: the direct product carries a caveat and says so below.
+    if (row.priced && row.payment.id === data.cheapest) {
+      const badge = document.createElement("span");
+      badge.className = "product-badge";
+      badge.textContent = "lowest fee";
+      button.append(badge);
+    }
+
+    const net = document.createElement("span");
+    net.className = "product-net";
+
+    const detail = document.createElement("span");
+    detail.className = "product-detail";
+
+    if (row.priced) {
+      net.textContent = `${SYMBOLS[row.net_received_currency] || ""}${decimalText(row.net_received)}`;
+      detail.textContent = `${money(row.total_fees, row.total_fees_currency)} in fees · ${row.effective_rate_pct}%`;
+      button.append(net, detail);
+
+      // The caveat travels with the number. A cheaper product that may not
+      // carry Seller Protection is not simply cheaper.
+      if (row.payment.caveat) {
+        const caveat = document.createElement("span");
+        caveat.className = "product-caveat";
+        caveat.textContent = row.payment.caveat;
+        button.append(caveat);
+      }
+
+      button.addEventListener("click", () => chooseProduct(row.payment.id));
+    } else {
+      net.textContent = "—";
+      detail.textContent = row.reason || "not priced";
+      button.append(net, detail);
+    }
+
+    grid.append(button);
+  }
+
+  const spread = data.spread;
+  $("products-spread").textContent =
+    `The gap between the lowest and highest fee is ${money(spread.amount, spread.currency)} on this invoice — same money, same client, same day.`;
+}
+
+function chooseProduct(id) {
+  const input = document.querySelector(`input[name="payment"][value="${id}"]`);
+  if (!input) return;
+  input.checked = true;
+  $("quote-form").requestSubmit();
 }
 
 /* --- PayPal invoicing ---------------------------------------------------- */

@@ -120,6 +120,18 @@ class QuoteRequest(BaseModel):
     payment: str = Field(..., description="One of the payment option ids")
 
 
+class ProductsRequest(BaseModel):
+    """The same invoice, without saying how it is paid.
+
+    Deliberately has no `payment`: the point of the endpoint is to price every
+    product at once, because the funding choice is the thing the user does not
+    know they are making.
+    """
+
+    amount: str = Field(..., description="Invoice amount as a decimal string, e.g. '5000.00'")
+    corridor: str = Field(..., description="Invoice currency, e.g. 'EUR'")
+
+
 class ExplainRequest(QuoteRequest):
     question: str | None = Field(
         default=None,
@@ -263,31 +275,47 @@ def create_app(
         version="0.2.0",
     )
 
-    def _price(request: QuoteRequest) -> dict:
+    def _corridor(currency: str) -> dict:
         try:
-            chosen_corridor = find_corridor(request.corridor)
+            return find_corridor(currency)
         except KeyError:
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    f"unknown corridor {request.corridor!r}. "
+                    f"unknown corridor {currency!r}. "
                     f"Known: {[c['invoice_currency'] for c in CORRIDORS]}"
                 ),
             )
+
+    def _payment(option_id: str) -> dict:
         try:
-            chosen_payment = find_payment(request.payment)
+            return find_payment(option_id)
         except KeyError:
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    f"unknown payment option {request.payment!r}. "
+                    f"unknown payment option {option_id!r}. "
                     f"Known: {[p['id'] for p in PAYMENT_OPTIONS]}"
                 ),
             )
 
-        amount = _parse_amount(request.amount)
+    def _payment_summary(option: dict) -> dict:
+        """What a comparison row needs to render itself.
 
-        tx = Transaction(
+        Deliberately excludes `payment_method` and `transaction_type`: those are
+        how the engine picks a rule, not something a reader is comparing.
+        """
+        return {
+            "id": option["id"],
+            "label": option["label"],
+            "group": option["group"],
+            "description": option.get("description", ""),
+            "spoken": option["spoken"],
+            "caveat": option.get("caveat", ""),
+        }
+
+    def _transaction(amount: Decimal, chosen_corridor: dict, chosen_payment: dict) -> Transaction:
+        return Transaction(
             amount=amount,
             invoice_currency=chosen_corridor["invoice_currency"],
             # The client settles the invoice as issued. A payer who converts into
@@ -302,13 +330,21 @@ def create_app(
             payment_method=chosen_payment["payment_method"],
         )
 
+    def _comparison(tx: Transaction):
         try:
-            comparison = compare_paths(tx, fees, snapshot)
+            return compare_paths(tx, fees, snapshot)
         except (UnsupportedCurrencyError, UnsupportedCombinationError) as exc:
             raise HTTPException(status_code=422, detail=str(exc))
         except FeeConfigError as exc:
             # A malformed config is our fault, not the caller's.
             raise HTTPException(status_code=500, detail=f"Fee configuration error: {exc}")
+
+    def _price(request: QuoteRequest) -> dict:
+        chosen_corridor = _corridor(request.corridor)
+        chosen_payment = _payment(request.payment)
+        amount = _parse_amount(request.amount)
+        tx = _transaction(amount, chosen_corridor, chosen_payment)
+        comparison = _comparison(tx)
 
         return quote_payload(
             comparison,
@@ -403,6 +439,87 @@ def create_app(
     @app.post("/api/quote")
     def quote(request: QuoteRequest):
         return _price(request)
+
+    @app.post("/api/products")
+    def products(request: ProductsRequest):
+        """Price the same invoice through every payment product, side by side.
+
+        This is the comparison the whole project is about: the amount, the
+        client and the day are identical, and the only variable is which button
+        the client presses. Making a judge click three times to discover that is
+        making them assemble the argument themselves.
+
+        Every figure here comes from the same engine and the same rules as
+        `/api/quote`; nothing is estimated separately, so a total cannot differ
+        between the two endpoints for the same product.
+
+        A product that cannot be priced is reported as an error row rather than
+        failing the request. One unavailable product should not hide the two
+        that are available — but it must not be silently dropped either, because
+        a comparison with a missing column reads as a comparison.
+        """
+        chosen_corridor = _corridor(request.corridor)
+        amount = _parse_amount(request.amount)
+
+        rows = []
+        for option in PAYMENT_OPTIONS:
+            tx = _transaction(amount, chosen_corridor, option)
+            try:
+                current = _comparison(tx).current
+            except HTTPException as exc:
+                rows.append(
+                    {
+                        "payment": _payment_summary(option),
+                        "priced": False,
+                        "reason": exc.detail,
+                        "tier": MODELLED,
+                    }
+                )
+                continue
+            rows.append(
+                {
+                    "payment": _payment_summary(option),
+                    "priced": True,
+                    "total_fees": str(current.total_fees),
+                    "total_fees_currency": current.total_fees_currency,
+                    "net_received": str(current.net_received),
+                    "net_received_currency": current.net_received_currency,
+                    "effective_rate_pct": str(current.effective_rate_pct),
+                    "tier": MODELLED,
+                }
+            )
+
+        priced = [row for row in rows if row["priced"]]
+        cheapest = min(
+            priced, key=lambda row: Decimal(row["total_fees"]), default=None
+        )
+        dearest = max(
+            priced, key=lambda row: Decimal(row["total_fees"]), default=None
+        )
+        spread = (
+            Decimal(dearest["total_fees"]) - Decimal(cheapest["total_fees"])
+            if cheapest and dearest
+            else Decimal("0")
+        )
+
+        return {
+            "amount": str(amount),
+            "corridor": chosen_corridor,
+            "products": rows,
+            "cheapest": cheapest["payment"]["id"] if cheapest else None,
+            "dearest": dearest["payment"]["id"] if dearest else None,
+            "spread": {
+                "amount": str(spread),
+                "currency": cheapest["total_fees_currency"] if cheapest else "",
+            },
+            "note": (
+                "Same amount, same client, same day. The only difference is "
+                "which way the client pays. All figures modelled from PayPal's "
+                "published US fee schedule — not a PayPal quote."
+            ),
+            "tier": MODELLED,
+            "fx_snapshot_date": snapshot["retrieved_date"],
+        }
 
     @app.post("/api/explain")
     def explain(request: ExplainRequest, http_request: Request):

@@ -42,6 +42,10 @@ read before the invoice is sent rather than after.
 Pick an amount, the client's country, and how the money arrives. FeeLens returns:
 
 - **the net** — what actually lands in the account's own currency
+- **all three products side by side** — the same invoice through every funding
+  choice at once, with the gap between the cheapest and dearest stated in
+  dollars. Clicking a card re-prices the page, so the argument is something the
+  judge watches happen rather than assembles themselves
 - **every fee line**, each carrying the rule id it came from and a link to the
   PayPal page that states it
 - **the effective rate**, because "3.49%" is never the number anyone experiences
@@ -178,13 +182,14 @@ then reload. A cold free-tier model takes 20–60s and will eat your runtime.
 | time | on screen | say |
 | --- | --- | --- |
 | 0:00–0:15 | README table | "A freelancer invoices a client for €5,000. PayPal keeps 417.57 USD, or 445.94 USD, or 418.06 USD — same money, same client, same day. The difference is which button the client presses. Nobody is told before the invoice is sent." |
-| 0:15–0:35 | app, amount €5,000, corridor EUR, product = invoice paid from PayPal | "FeeLens prices it before you send. Five corridors, three payment products." |
-| 0:35–0:55 | three product cards | "28.37 USD apart. And the invoice paid from a PayPal account is the *expensive* one — the opposite of what you'd guess." |
-| 0:55–1:20 | fee lines | "Every line carries its rule id and a link to the page that states it. 3.49% product, 1.50% international surcharge, 3.00% conversion spread. The effective rate is 8.00%, not 3.49%." |
-| 1:20–1:45 | scroll to savings + client side | "It suggests a cheaper route — invoice in USD, drop the conversion spread. You keep 167.25 USD more. But your client is now paying a USD invoice from a EUR balance, and that costs them 223.00. The pair of you are 55.75 USD worse off, 669.00 a year." |
-| 1:45–2:00 | rail card | "And a scale: a hypothetical 1% rail would take 55.75 instead of 445.94. Labelled hypothetical, because FeeLens prices no other provider." |
-| 2:00–2:30 | explanation panel | "The explanation is from a model that has no arithmetic. Four tools, no rates in its prompt, and every number in its answer is checked against the tool output afterwards. If it invents a figure, the answer is thrown away and a deterministic template is served instead." |
-| 2:30–2:45 | health endpoint or README | "Every figure is modelled from PayPal's published US fee schedule, with sources and dates. Not a PayPal quote, not financial advice. It's the fee, before you commit to it." |
+| 0:15–0:30 | app, amount €5,000, corridor EUR, product = invoice paid from PayPal | "FeeLens prices it before you send. Five corridors, three payment products." |
+| 0:30–0:50 | three product cards, click one | "Same invoice, three ways to pay, side by side. 28.37 USD apart — and the invoice paid from a PayPal account is the *expensive* one, the opposite of what you'd guess. Click a card and the whole page re-prices." |
+| 0:50–1:15 | fee lines | "Every line carries its rule id and a link to the page that states it. 3.49% product, 1.50% international surcharge, 3.00% conversion spread. The lines are in dollars and they add up to the total. The effective rate is 8.00%, not 3.49%." |
+| 1:15–1:40 | scroll to savings + client side | "It suggests a cheaper route — invoice in USD, drop the conversion spread. You keep 167.25 USD more. But your client is now paying a USD invoice from a EUR balance, and that costs them 223.00. The pair of you are 55.75 USD worse off, 669.00 a year." |
+| 1:40–1:52 | rail card | "And a scale: a hypothetical 1% rail would take 55.75 instead of 445.94. Labelled hypothetical, because FeeLens prices no other provider." |
+| 1:52–2:15 | explanation panel | "The explanation comes from a model with no arithmetic. Four tools, no rates in its prompt, and every number in its answer is checked against the tool output afterwards. If it invents a figure, the answer is thrown away and a deterministic template is served instead." |
+| 2:15–2:35 | press "Create invoice in PayPal sandbox" | "And it isn't a calculator sitting next to PayPal. This button calls PayPal's Invoicing API, creates a draft invoice for exactly this amount, reads it back, and shows the id PayPal returned. The invoice is real. The fee is still modelled, and the card says so — creating an invoice doesn't charge it." |
+| 2:35–2:50 | health endpoint or README | "Every fee figure is modelled from PayPal's published US fee schedule, with sources and dates. Not a PayPal quote, not financial advice. It's the fee, before you commit to it." |
 
 Do not claim a live PayPal quote anywhere in the narration. The tier is `modeled`
 and the page says so.

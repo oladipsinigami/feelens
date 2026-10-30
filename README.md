@@ -48,6 +48,10 @@ fee of 0.49 USD is 23% of a 2.10 USD payment.
 Pick the amount, the client's country, and how the money arrives. You get:
 
 - **the net** — what actually lands, in the currency the account holds
+- **all three products at once** — the same invoice priced through every way the
+  client can pay, side by side, because the funding choice is the thing nobody
+  tells you about. Clicking a card re-prices the page: nothing changes but the
+  button the client presses
 - **every fee line**, each carrying the rule id it came from and a link to the
   PayPal page that states it
 - **the effective rate**, because "3.49%" is never the number anyone experiences
@@ -238,6 +242,7 @@ the daily quota runs out the template comes back and says why.
 | endpoint | purpose |
 | --- | --- |
 | `POST /api/quote` | price one invoice: `{amount, corridor, payment}` |
+| `POST /api/products` | price the same invoice through **every** product: `{amount, corridor}` |
 | `POST /api/explain` | the same, plus an explanation and the tool trace |
 | `POST /api/paypal/invoice` | create a **draft invoice in the PayPal sandbox** for the amount just priced, and read it back |
 | `GET /api/config` | corridors, products, dates, disclaimer, PayPal status |
