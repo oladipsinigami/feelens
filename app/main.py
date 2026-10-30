@@ -87,6 +87,15 @@ DEFAULT_EXPLAINS_PER_WINDOW = 6
 DEFAULT_WINDOW_MINUTES = 10
 DEFAULT_DAILY_REQUEST_CAP = 44
 
+# A window alone does not bound a day. Six explanations every ten minutes is
+# unlimited over an afternoon, and the whole day's budget is about seventeen
+# explanations — so one curious visitor could spend it before the judge who
+# arrives after them clicks anything. Three a day per address is enough for one
+# person to explore the tool and small enough that the budget is shared rather
+# than first-come. Set the variable to 0 to remove the daily cap (a local run, or
+# a deployment on a paid tier).
+DEFAULT_EXPLAINS_PER_VISITOR_PER_DAY = 3
+
 # Creating an invoice is a real write against a shared sandbox account, so it is
 # throttled harder than explaining one. Three is enough to demo and to retry a
 # failure; it is not enough to fill the account with drafts.
@@ -251,6 +260,13 @@ def create_app(
         ),
         window_seconds=60
         * max(1, _env_int("MODEL_WINDOW_MINUTES", DEFAULT_WINDOW_MINUTES)),
+        # `or None` is deliberate: 0 is how the daily cap is switched off, and
+        # passing 0 through would clamp to 1 and refuse every second request.
+        max_per_day=_env_int(
+            "MODEL_EXPLAINS_PER_VISITOR_PER_DAY",
+            DEFAULT_EXPLAINS_PER_VISITOR_PER_DAY,
+        )
+        or None,
     )
     agent = agent or _build_agent(fees, snapshot, budget)
 
@@ -524,7 +540,16 @@ def create_app(
     @app.post("/api/explain")
     def explain(request: ExplainRequest, http_request: Request):
         payload = _price(request)
-        decision = _allowance(_client_address(http_request))
+        # An answer this process already holds is free, so asking for it again
+        # neither needs nor spends an allowance. Charging it would be a limit on
+        # the visitor rather than on the budget, and it is the common case in a
+        # demo: the same quote opened twice.
+        if agent.cached(
+            request.amount, request.corridor, request.payment, request.question
+        ) is not None:
+            decision = Decision(allowed=True)
+        else:
+            decision = _allowance(_client_address(http_request))
         explanation = agent.explain(
             request.amount,
             request.corridor,

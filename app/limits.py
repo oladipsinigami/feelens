@@ -39,27 +39,40 @@ ALLOWED = Decision(True)
 
 
 class VisitorLimiter:
-    """A sliding window of explanations per client address.
+    """A sliding window of explanations per client address, and an optional day.
 
     Sliding, not fixed, because a fixed window lets a visitor spend the whole
     allowance at 09:59 and the whole next one at 10:00. The window is short
     enough that this is a throttle rather than a punishment: a visitor who hits
     it waits a few minutes, and every quote stays available through `/api/quote`
     and through the cached explanations the app already holds.
+
+    The window alone is not enough on a public link. Six explanations every ten
+    minutes is unlimited over a day, and the day's whole model budget is about
+    seventeen explanations — so one curious visitor clicking Explain for twenty
+    minutes can leave every judge after them on the template. `max_per_day`
+    bounds that: it is not a limit on curiosity, it is a guarantee that the
+    budget is shared rather than first-come.
     """
 
     def __init__(
         self,
         max_explanations: int = 6,
         window_seconds: int = 600,
+        max_per_day: int | None = None,
         max_visitors: int = 2048,
         clock=time.monotonic,
+        day_clock=None,
     ):
         self._max = max(1, max_explanations)
         self._window = max(1, window_seconds)
+        self._daily_max = max(1, max_per_day) if max_per_day is not None else None
         self._max_visitors = max(1, max_visitors)
         self._clock = clock
+        self._day_clock = day_clock or _utc_today
+        self._day = self._day_clock()
         self._seen: dict = {}
+        self._per_day: dict = {}
 
     @property
     def window_minutes(self) -> int:
@@ -70,10 +83,40 @@ class VisitorLimiter:
         """The allowance itself, for reporting. Not used to enforce anything."""
         return self._max
 
+    @property
+    def max_per_day(self) -> int | None:
+        return self._daily_max
+
+    def _roll_day(self) -> None:
+        today = self._day_clock()
+        if today != self._day:
+            self._day = today
+            self._per_day.clear()
+
     def take(self, address: str) -> Decision:
         """Record one explanation attempt, or refuse it and say for how long."""
         now = self._clock()
-        stamps = self._seen.setdefault(address or "unknown", [])
+        self._roll_day()
+        address = address or "unknown"
+
+        # The day is checked before the window, and before anything is counted.
+        # A visitor refused by the window has not used a day's allowance, and
+        # charging them for a refusal would make the day end early for no
+        # reason.
+        if self._daily_max is not None:
+            used = self._per_day.get(address, 0)
+            if used >= self._daily_max:
+                return Decision(
+                    allowed=False,
+                    note=(
+                        f"{used} of {self._daily_max} model explanations per "
+                        "visitor per day, so the day's shared model budget lasts "
+                        "for everyone. It resets at 00:00 UTC; the figures below "
+                        "are unaffected."
+                    ),
+                )
+
+        stamps = self._seen.setdefault(address, [])
         cutoff = now - self._window
         while stamps and stamps[0] <= cutoff:
             stamps.pop(0)
@@ -95,6 +138,8 @@ class VisitorLimiter:
             )
 
         stamps.append(now)
+        if self._daily_max is not None:
+            self._per_day[address] = self._per_day.get(address, 0) + 1
         self._forget_stale(cutoff)
         return ALLOWED
 
@@ -104,18 +149,27 @@ class VisitorLimiter:
         A public link attracts scanners. Their addresses are worth forgetting as
         soon as their window is empty, and the cap is the backstop if they are
         not.
+
+        A forgotten address loses its day count too. That is the price of not
+        growing without bound, and it is only paid past `max_visitors` distinct
+        addresses — a load at which the account's own request ceiling, not this
+        table, is what actually protects the budget.
         """
         if len(self._seen) <= self._max_visitors:
             return
         for address in [a for a, s in self._seen.items() if not s or s[-1] <= cutoff]:
             self._seen.pop(address, None)
+            self._per_day.pop(address, None)
         while len(self._seen) > self._max_visitors:
-            self._seen.pop(next(iter(self._seen)), None)
+            stale = next(iter(self._seen))
+            self._seen.pop(stale, None)
+            self._per_day.pop(stale, None)
 
     def snapshot(self) -> dict:
         return {
             "explanations_per_visitor": self._max,
             "window_minutes": self.window_minutes,
+            "per_visitor_per_day": self._daily_max,
         }
 
 

@@ -131,6 +131,16 @@ class ExplanationAgent:
     def model_ready(self) -> bool:
         return bool(self._client is not None and getattr(self._client, "available", False))
 
+    def cached(self, amount, corridor, payment, question=None):
+        """The validated answer this process already holds, or None.
+
+        Exposed because a cached answer costs nothing, so it must not be
+        charged against a limit that exists to protect the model budget. The
+        caller asks this *before* taking an allowance; `explain()` checks the
+        same cache again and is the authority on what gets served.
+        """
+        return self._cache.get(self._cache_key(amount, corridor, payment, question))
+
     def explain(
         self,
         amount: str,

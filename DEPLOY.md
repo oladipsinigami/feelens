@@ -93,21 +93,34 @@ account limit, because that limit is shared.
 ### The limits that keep the budget for a judge
 
 A public link with a 50/day budget and no limit is a link where the first visitor
-can spend the day. So `/api/explain` is capped twice:
+can spend the day. So `/api/explain` is capped three ways:
 
 | variable | default | meaning |
 | --- | --- | --- |
 | `MODEL_EXPLAINS_PER_WINDOW` | `6` | explanations per visitor per window |
 | `MODEL_WINDOW_MINUTES` | `10` | length of the sliding window |
+| `MODEL_EXPLAINS_PER_VISITOR_PER_DAY` | `3` | explanations per visitor per UTC day |
 | `MODEL_DAILY_REQUEST_CAP` | `44` | upstream requests per UTC day, all visitors |
+
+The first two are a throttle and the third is a share. A window alone does not
+bound a day: six explanations every ten minutes is unlimited over an afternoon,
+and the whole day's budget is about seventeen explanations, so one curious
+visitor could spend it and leave every judge after them on the template — on the
+one feature the submission is about. Three a day is enough for one person to
+explore the tool, and small enough that the budget is shared rather than
+first-come. Set `MODEL_EXPLAINS_PER_VISITOR_PER_DAY=0` to remove the daily cap.
+
+A **cached** explanation is exempt from all of them. It costs no request, so
+charging it would be a limit on the visitor rather than on the budget — and the
+common demo case is the same quote opened twice.
 
 The per-visitor key is the **last** entry of `X-Forwarded-For`, because Render
 appends the real peer to whatever the client sent — the first entry is
 client-controlled and reading it would let anyone mint a new bucket per request.
 
-Neither limit returns an error. The quote is priced and the template explanation
-is served, with a note naming the limit and when it resets, and `/api/config`
-publishes both limits so the behaviour is inspectable rather than mysterious.
+No limit returns an error. The quote is priced and the template explanation is
+served, with a note naming the limit and when it resets, and `/api/config`
+publishes every limit so the behaviour is inspectable rather than mysterious.
 `/api/health` reports the remaining allowance.
 
 The daily count is per process, so a restart starts it from zero. That is stated
