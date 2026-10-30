@@ -14,7 +14,9 @@ python -m uvicorn app.main:app --port 8000     →  http://127.0.0.1:8000
 
 Live: **https://feelens-su23.onrender.com** (Render free tier — the first request
 after a sleep takes ~30s to wake, and the first explanation of a quote takes
-20–60s on a loaded free model).
+20–60s on a loaded free model). A scheduled GitHub Action pings it every 5
+minutes between 06:00 and 23:55 UTC so it is usually already awake; outside that
+window the first click pays the cold start.
 
 ---
 

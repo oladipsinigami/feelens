@@ -75,10 +75,10 @@ judge is unlikely to click through all fifteen corridor × product combinations.
 
 The cache is in process memory, so it dies with the instance. On the free plan
 the instance sleeps after 15 minutes of inactivity, which means a warmed quote
-is warm only while something is keeping the app awake — point a free uptime
-monitor (cron-job.org, UptimeRobot) at `/api/health` every 10 minutes and both
-the cold start and the cold cache stop being a problem. Without one, the first
-click after a sleep costs 20–60 seconds again, and the page is honest about it:
+is warm only while something is keeping the app awake. `.github/workflows/keepalive.yml`
+pings `/api/health` every 5 minutes between 06:00 and 23:55 UTC for exactly that
+reason — see [Keeping it awake](#keeping-it-awake). Outside that window the
+first click after a sleep costs 20–60 seconds, and the page is honest about it:
 the chip reads `ai` only once the model has actually answered.
 
 When the quota runs out, nothing breaks. `/api/explain` returns the template and
@@ -143,15 +143,43 @@ which the page says out loud rather than implying otherwise.
 **Cold starts.** Free instances sleep after 15 minutes of inactivity and take
 roughly 30–60 seconds to wake. A judge clicking the Devpost link may see a
 browser timeout rather than the page. Either open the URL yourself a minute
-before demoing, or point a free uptime monitor (UptimeRobot, cron-job.org) at
-`/api/health` every 10 minutes. Ping the health endpoint, not `/` — it is cheap
-and it is the same signal Render uses.
+before demoing, or rely on the scheduled ping described below. Ping the health
+endpoint, not `/` — it is cheap and it is the same signal Render uses.
 
-**`/api/explain` costs a model call.** There is no authentication and no rate
-limit, because there is nothing to protect but a free-tier quota: an abusive
-caller burns rate limit, not money, and every failure degrades to the template.
-If the app is ever pointed at a paid model, that assumption stops holding and
-the endpoint needs a limit before the key is set.
+**`/api/explain` costs a model call.** It is rate-limited twice: a visitor gets
+six explanations per ten minutes, and the process as a whole gets a daily
+upstream cap. Both refuse by returning the template plus a note rather than an
+error, because nothing was rejected — one thing was withheld. Cached
+explanations are served regardless of either limit. The limits exist because a
+free model tier is 50 requests a day shared by everyone who opens the link.
+
+## Keeping it awake
+
+`.github/workflows/keepalive.yml` pings `/api/health` every 5 minutes between
+06:00 and 23:55 UTC. No third-party account, no cron service to maintain. To
+check it by hand:
+
+```bash
+gh workflow run keepalive
+gh run watch
+```
+
+It is deliberately **not** 24/7. Render's free plan allows 750 instance hours a
+month and a month is about 730 hours, so keeping one service awake around the
+clock would spend nearly all of it and starve the other free services on the
+account. 06:00–23:55 UTC is roughly 547 hours a month and covers US and European
+working hours, when judging is most likely.
+
+Two limits, stated rather than hidden:
+
+- GitHub delays scheduled runs under load, sometimes by 10–15 minutes. A run
+  that slips past 15 minutes lets the service sleep anyway, so this reduces cold
+  starts; it does not eliminate them.
+- GitHub disables scheduled workflows on a public repo after 60 days with no
+  activity. The judging period ends 2026-12-15, well inside that.
+
+The job exits 0 even when the ping fails and raises a `::warning::` instead. A
+red X on a public repo reads as "their tests fail", and this is not a test.
 
 ## Refreshing the rates before a demo
 
