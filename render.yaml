@@ -4,9 +4,15 @@
 # engine is stateless and the FX snapshot is a file in the repo, so there is
 # nothing to persist and nothing to keep warm except the process.
 #
-# The PayPal credentials are deliberately absent. They are only used by
-# `scripts/check_sandbox.py`, which is run by hand; the web app never touches
-# the PayPal API. Putting them on the server would be a secret with no consumer.
+# The PayPal credentials are SANDBOX credentials and are what let the deployed
+# app make a real Invoicing API call. A sandbox app cannot move real money, and
+# PayPalClient refuses a non-sandbox host unless allow_live=True is passed in
+# code, so hosting them is the point rather than a risk. `sync: false` keeps the
+# values in the dashboard, never in this file.
+#
+# Without them the app still works: the "Create invoice" button is hidden and
+# /api/health reports paypal_configured: false. The quote is arithmetic on a
+# local file and needs no network.
 #
 # OPENROUTER_API_KEY uses `sync: false`, which means Render prompts for the
 # value in the dashboard and never reads it from this file. A key in a committed
@@ -39,3 +45,9 @@ services:
         value: "10"
       - key: MODEL_DAILY_REQUEST_CAP
         value: "44"
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_INVOICES_PER_WINDOW
+        value: "3"

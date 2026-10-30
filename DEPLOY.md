@@ -12,10 +12,18 @@ thing that has to stay alive is the process.
 | `OPENROUTER_API_KEY` | no | Without it every explanation is the deterministic template. The page is fully functional either way; `/api/health` says which mode is live. |
 | `LLM_MODEL` | no | Primary model. Defaults to the free Nemotron build. |
 | `LLM_FALLBACK_MODEL` | no | Tried when the primary is rate-limited, which on a free tier is normal. |
+| `PAYPAL_CLIENT_ID` | no | Sandbox app client id. Without it the "Create invoice in PayPal" button is hidden and `/api/health` reports `paypal_configured: false`. The quote is unaffected. |
+| `PAYPAL_CLIENT_SECRET` | no | Sandbox app secret, paired with the id above. |
+| `PAYPAL_BASE_URL` | no | Defaults to `https://api-m.sandbox.paypal.com`. The client refuses any non-sandbox host unless `allow_live=True` is passed in code. |
+| `PAYPAL_DEMO_RECIPIENT` | no | The sandbox buyer address an invoice is drafted to. Defaults to `sb-buyer@business.example.com`. |
+| `PAYPAL_INVOICES_PER_WINDOW` | no | Invoice creations per visitor per window. Defaults to 3 — enough to demo, not enough to fill a shared sandbox. |
 
-The PayPal credentials are **not** on the server. They are used only by
-`scripts/check_sandbox.py`, which runs by hand; the web app never calls the
-PayPal API. Adding them to the host would be a secret with nothing consuming it.
+The PayPal credentials are **sandbox** credentials, and they are the only secret
+the web app needs in order to demonstrate a real API call. They are safe to host:
+a sandbox app cannot move real money, and the client will not talk to the live
+host even if the base URL is changed. Without them the app still works — the
+button is hidden, not broken — but the project then has no PayPal API call in it,
+which is the thing the hackathon is scoring.
 
 Both model names are checked by `python scripts/check_models.py`, which needs no
 key: OpenRouter publishes its model list publicly. It verifies that each name

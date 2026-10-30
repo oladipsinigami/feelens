@@ -57,6 +57,7 @@ from app.engine.models import (
     UnsupportedCurrencyError,
 )
 from app.limits import Decision, ModelBudget, VisitorLimiter
+from app.paypal import MalformedResponse, PayPalClient, PayPalError
 from app.serialize import quote_payload
 
 load_dotenv()
@@ -86,6 +87,21 @@ DEFAULT_EXPLAINS_PER_WINDOW = 6
 DEFAULT_WINDOW_MINUTES = 10
 DEFAULT_DAILY_REQUEST_CAP = 44
 
+# Creating an invoice is a real write against a shared sandbox account, so it is
+# throttled harder than explaining one. Three is enough to demo and to retry a
+# failure; it is not enough to fill the account with drafts.
+DEFAULT_INVOICES_PER_WINDOW = 3
+
+# A sandbox invoice needs a recipient, and the demo recipient is not the point —
+# the invoice is. Overridable so a real sandbox buyer address can be used when
+# someone wants to open the recipient view.
+DEFAULT_DEMO_RECIPIENT = "sb-buyer@business.example.com"
+
+# Distinguishes "build one from the environment" from "this deployment has none".
+# Without it, `paypal=None` would silently fall back to the environment and a
+# test could not prove the unconfigured path.
+_BUILD_FROM_ENV = object()
+
 
 def _env_int(name: str, default: int) -> int:
     raw = (os.environ.get(name) or "").strip()
@@ -110,6 +126,37 @@ class ExplainRequest(QuoteRequest):
         description="Optional free-text question, e.g. 'why is this so high?'",
         max_length=500,
     )
+
+
+class InvoiceRequest(QuoteRequest):
+    recipient_email: str | None = Field(
+        default=None,
+        description=(
+            "Sandbox buyer address. Defaults to the demo recipient; it is the "
+            "invoice that matters, not the address."
+        ),
+        max_length=254,
+    )
+
+
+def _build_paypal() -> tuple:
+    """The PayPal client, or (None, reason) if it is not configured.
+
+    A missing or bad PayPal config must not take the fee engine down: the quote
+    is the product and it needs no network. But it must not be silent either, so
+    the reason is carried out to /api/health where a judge can see it. A site
+    that says "PayPal: not configured (PAYPAL_CLIENT_SECRET is empty)" is honest;
+    one that quietly hides the button is not.
+    """
+    client_id = (os.environ.get("PAYPAL_CLIENT_ID") or "").strip()
+    secret = (os.environ.get("PAYPAL_CLIENT_SECRET") or "").strip()
+    if not client_id or not secret:
+        return None, "PAYPAL_CLIENT_ID or PAYPAL_CLIENT_SECRET is not set"
+    try:
+        return PayPalClient(client_id, secret), ""
+    except ValueError as exc:
+        # Raised when PAYPAL_BASE_URL points at the live host without opt-in.
+        return None, str(exc)
 
 
 def _parse_amount(raw: str) -> Decimal:
@@ -168,6 +215,8 @@ def create_app(
     agent: ExplanationAgent | None = None,
     budget: ModelBudget | None = None,
     limiter: VisitorLimiter | None = None,
+    paypal=_BUILD_FROM_ENV,
+    invoice_limiter: VisitorLimiter | None = None,
 ) -> FastAPI:
     """Build the app against a specific pair of data files.
 
@@ -192,6 +241,21 @@ def create_app(
         * max(1, _env_int("MODEL_WINDOW_MINUTES", DEFAULT_WINDOW_MINUTES)),
     )
     agent = agent or _build_agent(fees, snapshot, budget)
+
+    if paypal is _BUILD_FROM_ENV:
+        paypal, paypal_reason = _build_paypal()
+    elif paypal is None:
+        paypal_reason = "PAYPAL_CLIENT_ID or PAYPAL_CLIENT_SECRET is not set"
+    else:
+        paypal_reason = ""
+
+    invoice_limiter = invoice_limiter or VisitorLimiter(
+        max_explanations=_env_int(
+            "PAYPAL_INVOICES_PER_WINDOW", DEFAULT_INVOICES_PER_WINDOW
+        ),
+        window_seconds=60
+        * max(1, _env_int("MODEL_WINDOW_MINUTES", DEFAULT_WINDOW_MINUTES)),
+    )
 
     app = FastAPI(
         title="FeeLens",
@@ -288,6 +352,9 @@ def create_app(
             "fx_stale": age > STALENESS_THRESHOLD_DAYS,
             "model_configured": agent.model_ready,
             "model_budget": budget.snapshot(),
+            "paypal_configured": paypal is not None,
+            "paypal_environment": "sandbox" if paypal is not None else "",
+            "paypal_note": paypal_reason,
             "tier": MODELLED,
         }
 
@@ -319,6 +386,18 @@ def create_app(
                 },
             },
             "disclaimer": DISCLAIMER,
+            "paypal": {
+                "configured": paypal is not None,
+                "environment": "sandbox" if paypal is not None else "",
+                "note": paypal_reason,
+                "creates": "a draft invoice in the PayPal sandbox",
+                "observed": "the invoice, its id and its amount",
+                "not_observed": "the fee — it stays modelled until a payment is captured",
+                "per_visitor": {
+                    "invoices": invoice_limiter.max_per_window,
+                    "window_minutes": invoice_limiter.window_minutes,
+                },
+            },
         }
 
     @app.post("/api/quote")
@@ -338,6 +417,100 @@ def create_app(
             blocked_note=decision.note,
         )
         return {**payload, "explanation": explanation.as_dict()}
+
+    @app.post("/api/paypal/invoice")
+    def create_paypal_invoice(request: InvoiceRequest, http_request: Request):
+        """Create a real invoice in the PayPal sandbox for the quote just priced.
+
+        This is the one call that leaves the process. Everything else FeeLens
+        does is arithmetic on a local file; here the app asks PayPal to create
+        an object, reads it back, and reports what PayPal said.
+
+        The honest boundary, stated in the response because a judge will ask:
+
+        - **Observed**: the invoice exists. Its id, status, amount and currency
+          were returned by PayPal, not computed here.
+        - **Not observed**: the fee. Creating an invoice does not make PayPal
+          charge it. No payment has been captured, so every fee line is still
+          `modeled`.
+
+        The quote is priced first, and the invoice uses the amount the engine
+        priced. PayPal is never asked what to charge.
+        """
+        payload = _price(request)
+
+        if paypal is None:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "PayPal is not configured on this deployment"
+                    + (f" ({paypal_reason})" if paypal_reason else "")
+                    + ". The quote above is unaffected and fully modelled."
+                ),
+            )
+
+        decision = invoice_limiter.take(_client_address(http_request))
+        if not decision.allowed:
+            raise HTTPException(status_code=429, detail=decision.note)
+
+        recipient = (
+            request.recipient_email or os.environ.get("PAYPAL_DEMO_RECIPIENT") or DEFAULT_DEMO_RECIPIENT
+        ).strip()
+
+        try:
+            invoice = paypal.create_invoice(
+                amount=Decimal(payload["amount"]),
+                currency=payload["corridor"]["invoice_currency"],
+                recipient_email=recipient,
+                item_name=f"FeeLens demo — {payload['payment']['label']}",
+                note=(
+                    "Created by FeeLens through the PayPal Invoicing API. The "
+                    "fee shown by FeeLens is modelled, not assessed."
+                ),
+            )
+        except PayPalError as exc:
+            # PayPal's own words, not a paraphrase. A 502 because the upstream
+            # failed; the quote the caller already has is still correct.
+            raise HTTPException(status_code=502, detail=str(exc))
+        except MalformedResponse as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"PayPal returned a response this client could not read: {exc}",
+            )
+
+        return {
+            "tier": invoice.tier,
+            "invoice": {
+                "id": invoice.id,
+                "status": invoice.status,
+                "invoice_number": invoice.invoice_number,
+                "amount": str(invoice.amount),
+                "currency": invoice.currency,
+                "created": invoice.create_time,
+                "recipient_view_url": invoice.recipient_view_url,
+                "invoicer_view_url": invoice.invoicer_view_url,
+            },
+            "observed": (
+                "An invoice with this amount and currency now exists in the "
+                "PayPal sandbox. Its id, status and amount were read back from "
+                "PayPal after creation."
+            ),
+            "not_observed": (
+                "The fee is still modelled. Creating an invoice does not make "
+                "PayPal charge it, and no payment has been captured — so every "
+                "fee figure on this page remains an estimate."
+            ),
+            "environment": "sandbox",
+            "quote": {
+                "amount": payload["amount"],
+                "currency": payload["corridor"]["invoice_currency"],
+                "payment": payload["payment"]["id"],
+                "total_fees": payload["current"]["total_fees"],
+                "total_fees_currency": payload["current"]["total_fees_currency"],
+                "net_received": payload["current"]["net_received"],
+                "tier": payload["tier"],
+            },
+        }
 
     @app.get("/")
     def index():

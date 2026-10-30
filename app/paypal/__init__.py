@@ -10,6 +10,7 @@ from .client import LIVE_BASE_URL, SANDBOX_BASE_URL, PayPalClient
 from .models import (
     SANDBOX_OBSERVED,
     Calibration,
+    Invoice,
     MalformedResponse,
     Money,
     Order,
@@ -26,6 +27,7 @@ from .reconcile import (
 
 __all__ = [
     "Calibration",
+    "Invoice",
     "LIVE_BASE_URL",
     "MATCHES_MODEL",
     "MODEL_OVERSTATES",

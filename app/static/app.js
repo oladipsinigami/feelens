@@ -10,7 +10,7 @@
 
 const SYMBOLS = { USD: "$", EUR: "€", GBP: "£", PHP: "₱", AUD: "A$", INR: "₹" };
 
-const state = { config: null };
+const state = { config: null, lastQuote: null };
 
 const $ = (id) => document.getElementById(id);
 
@@ -70,6 +70,7 @@ async function boot() {
   $("corridor").addEventListener("change", syncAmountPrefix);
   $("quote-form").addEventListener("submit", onSubmit);
   $("explain-button").addEventListener("click", onExplain);
+  $("paypal-button").addEventListener("click", onCreateInvoice);
 
   // Prose written for one invoice must not survive into another. If any input
   // that changes the price moves, the explanation is cleared rather than left
@@ -217,8 +218,88 @@ function render(data) {
   renderList($("rejected"), data.rejected.map((item) => `${item.path_id.replace(/_/g, " ")}: ${item.reason}`));
 
   $("disclaimer").textContent = data.disclaimer;
+  renderPayPalCard(data);
   resetExplanation();
   $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* --- PayPal invoicing ---------------------------------------------------- */
+
+/* The one part of this page that leaves the process. Everything above is
+ * arithmetic on a local file; this asks PayPal to create an object and reports
+ * what PayPal said. The two messages under the invoice id are not decoration:
+ * the invoice is observed, the fee is not, and the page must never blur them. */
+
+function renderPayPalCard(data) {
+  const card = $("paypal-card");
+  const configured = state.config.paypal && state.config.paypal.configured;
+  if (!configured) {
+    card.hidden = true;
+    return;
+  }
+
+  card.hidden = false;
+  $("paypal-result").hidden = true;
+  $("paypal-error").hidden = true;
+
+  const button = $("paypal-button");
+  button.disabled = false;
+  button.textContent = "Create invoice in PayPal sandbox";
+
+  state.lastQuote = {
+    amount: data.amount,
+    corridor: data.corridor.invoice_currency,
+    payment: data.payment.id,
+  };
+}
+
+async function onCreateInvoice() {
+  if (!state.lastQuote) return;
+
+  const button = $("paypal-button");
+  const error = $("paypal-error");
+  error.hidden = true;
+  button.disabled = true;
+  button.textContent = "Creating…";
+
+  try {
+    const response = await fetch("/api/paypal/invoice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state.lastQuote),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || "PayPal did not create the invoice.");
+    }
+    showInvoice(data);
+  } catch (problem) {
+    error.textContent = problem.message;
+    error.hidden = false;
+  } finally {
+    button.disabled = false;
+    button.textContent = "Create another invoice in the sandbox";
+  }
+}
+
+function showInvoice(data) {
+  const invoice = data.invoice;
+  $("paypal-id").textContent = invoice.id;
+  $("paypal-status").textContent = invoice.status;
+  $("paypal-amount").textContent = money(invoice.amount, invoice.currency);
+  $("paypal-env").textContent = data.environment;
+
+  const link = $("paypal-invoicer-link");
+  if (invoice.invoicer_view_url) {
+    link.href = invoice.invoicer_view_url;
+    link.hidden = false;
+  } else {
+    link.hidden = true;
+  }
+
+  $("paypal-observed").textContent = data.observed;
+  $("paypal-not-observed").textContent = data.not_observed;
+  $("paypal-result").hidden = false;
 }
 
 /* --- explanation --------------------------------------------------------- */

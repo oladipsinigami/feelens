@@ -110,6 +110,35 @@
         <p class="savings-caveat" id="savings-caveat"></p>
       </div>
 
+      <div class="card paypal" id="paypal-card" hidden>
+        <h2>Create this invoice in PayPal</h2>
+        <p class="muted">
+          This calls PayPal's Invoicing API and creates a draft invoice in the
+          sandbox for the amount above. The invoice is real; the fee is still an
+          estimate, because creating an invoice does not charge it.
+        </p>
+        <button type="button" class="secondary" id="paypal-button">
+          Create invoice in PayPal sandbox
+        </button>
+        <p class="form-error" id="paypal-error" role="alert" hidden></p>
+
+        <div class="paypal-result" id="paypal-result" hidden>
+          <p class="invoice-id" id="paypal-id"></p>
+          <dl class="headline-facts">
+            <div><dt>Status</dt><dd id="paypal-status">—</dd></div>
+            <div><dt>Invoice amount</dt><dd id="paypal-amount">—</dd></div>
+            <div><dt>Environment</dt><dd id="paypal-env">—</dd></div>
+          </dl>
+          <p class="paypal-links">
+            <a id="paypal-invoicer-link" href="#" target="_blank" rel="noopener noreferrer">
+              Open the invoice in your PayPal sandbox
+            </a>
+          </p>
+          <p class="paypal-observed" id="paypal-observed"></p>
+          <p class="paypal-not-observed" id="paypal-not-observed"></p>
+        </div>
+      </div>
+
       <div class="card explain">
         <div class="explain-head">
           <h2>In plain language</h2>

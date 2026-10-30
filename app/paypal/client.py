@@ -1,9 +1,13 @@
 """Thin PayPal REST client.
 
-Deliberately thin: four methods' worth of surface, no SDK, no retry policy, no
-abstraction layer that hides the JSON. FeeLens needs exactly three calls —
-authenticate, create an order, capture it — and every number that matters comes
-straight out of PayPal's `seller_receivable_breakdown`.
+Deliberately thin: no SDK, no retry policy, no abstraction layer that hides the
+JSON. FeeLens needs a handful of calls — authenticate, create an order, capture
+it, create an invoice — and every number that matters comes straight out of
+PayPal's own response.
+
+The invoicing call is the one the deployed app actually uses: a modelled fee is
+a claim, but an invoice that exists in PayPal with that amount on it is a fact,
+and the difference is the whole reason the three tiers exist.
 
 Two safety properties are enforced here rather than left to callers:
 
@@ -14,8 +18,9 @@ Two safety properties are enforced here rather than left to callers:
   worse than a crash, because it looks like an answer.
 
 Docs:
-- OAuth:   https://developer.paypal.com/api/rest/authentication/
-- Orders:  https://developer.paypal.com/docs/api/orders/v2/
+- OAuth:     https://developer.paypal.com/api/rest/authentication/
+- Orders:    https://developer.paypal.com/docs/api/orders/v2/
+- Invoicing: https://developer.paypal.com/docs/api/invoicing/v2/
 """
 
 from __future__ import annotations
@@ -27,7 +32,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 import httpx
 
-from .models import Calibration, MalformedResponse, Order, PayPalError
+from .models import Calibration, Invoice, MalformedResponse, Order, PayPalError
 
 SANDBOX_BASE_URL = "https://api-m.sandbox.paypal.com"
 LIVE_BASE_URL = "https://api-m.paypal.com"
@@ -174,6 +179,73 @@ class PayPalClient:
 
         return Calibration.from_capture(response.json())
 
+    # --- invoicing --------------------------------------------------------
+
+    def create_invoice(
+        self,
+        amount: Decimal,
+        currency: str,
+        recipient_email: str,
+        invoice_number: str = "",
+        item_name: str = "Freelance services",
+        note: str = "Created by FeeLens from a modelled fee quote.",
+    ) -> Invoice:
+        """Create a draft invoice in PayPal and read it back.
+
+        Two calls, deliberately. `POST /v2/invoicing/invoices` returns only a
+        `self` link — no id, no amount, no buyer URL — so the invoice has to be
+        read back before it is evidence of anything. Returning the create
+        response would let the app display an invoice number it never actually
+        received.
+
+        A draft is created, not sent. Sending would email a real (sandbox)
+        buyer, and a demo that emails strangers on a button press is not a demo
+        anyone should ship.
+        """
+        payload = {
+            "detail": {
+                "currency_code": currency,
+                "note": note,
+                "payment_term": {"term_type": "DUE_ON_RECEIPT"},
+            },
+            "invoicer": {"business_name": "FeeLens"},
+            "primary_recipients": [
+                {"billing_info": {"email_address": recipient_email}}
+            ],
+            "items": [
+                {
+                    "name": item_name,
+                    "quantity": "1",
+                    "unit_amount": {
+                        "currency_code": currency,
+                        "value": _amount(amount),
+                    },
+                }
+            ],
+        }
+        if invoice_number:
+            # Left to PayPal when absent: its auto-increment cannot collide with
+            # another visitor's invoice, and a shared sandbox has many visitors.
+            payload["detail"]["invoice_number"] = invoice_number
+
+        created = self._http.post(
+            "/v2/invoicing/invoices",
+            json=payload,
+            headers=self._auth_headers(),
+        )
+        if created.status_code not in (200, 201):
+            raise self._error(created)
+
+        invoice_id = _id_from_self_link(created)
+        fetched = self._http.get(
+            f"/v2/invoicing/invoices/{invoice_id}",
+            headers={"Authorization": f"Bearer {self.token()}"},
+        )
+        if fetched.status_code != 200:
+            raise self._error(fetched)
+
+        return Invoice.from_create(fetched.json(), fallback_number=invoice_number)
+
     # --- internals --------------------------------------------------------
 
     def _auth_headers(self) -> dict:
@@ -240,3 +312,25 @@ class PayPalClient:
 def _amount(amount: Decimal) -> str:
     """PayPal wants a decimal string with the currency's precision, never a float."""
     return str(Decimal(amount).quantize(_CENT, rounding=ROUND_HALF_UP))
+
+
+def _id_from_self_link(response: httpx.Response) -> str:
+    """Pull the invoice id out of the create response's `self` href.
+
+    The create endpoint answers with `{"rel": "self", "href": ".../invoices/INV2-..."}`
+    rather than the invoice itself. The id is the last path segment; anything
+    else means the response is not the shape this client was written for, and
+    guessing would be worse than failing.
+    """
+    try:
+        href = (response.json() or {}).get("href") or ""
+    except ValueError:
+        raise MalformedResponse("create-invoice response was not JSON")
+
+    invoice_id = href.rstrip("/").rsplit("/", 1)[-1]
+    if not invoice_id.startswith("INV2-"):
+        raise MalformedResponse(
+            f"create-invoice response has no usable invoice id (href={href!r})"
+        )
+    return invoice_id
+

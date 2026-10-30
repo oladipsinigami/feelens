@@ -128,17 +128,29 @@ demo whose arithmetic is a local file.
 Cached explanations are served regardless of either limit. Refusing an answer the
 app already holds would be a limit on the page rather than on the budget.
 
-## Three tiers, and only one of them is in use
+## Three tiers, and only one of them prices the fee
 
 | tier | meaning | in use |
 | --- | --- | --- |
-| `modeled` | calculated from published rates | **yes, everything** |
+| `modeled` | calculated from published rates | **yes — every fee line** |
 | `paypal_quote` | a figure PayPal itself quoted | no |
-| `sandbox_observed` | captured from a sandbox transaction | client built, not wired |
+| `sandbox_observed` | returned by a live PayPal sandbox call | **yes — the invoice, not the fee** |
 
 Every fee line carries `tier: "modeled"` and the UI renders a `modeled` chip
 above the result with "Not a PayPal quote" beside it. The payload makes it
 impossible to present a modelled figure as a live one by accident.
+
+The `sandbox_observed` tier is used by exactly one thing, and the distinction
+matters: pressing **Create invoice in PayPal** calls PayPal's Invoicing API
+(`POST /v2/invoicing/invoices`), then reads the invoice back and shows the id,
+status and amount PayPal returned. The **invoice** is observed. The **fee** is
+not — creating an invoice does not charge it, and no payment is captured — so
+every fee figure stays `modeled` and the card says so in the same breath.
+
+That is the only part of FeeLens that leaves the process. Everything else is
+arithmetic on a local file, which is why the quote works with no PayPal
+credentials at all: the button is disabled, `/api/health` reports
+`paypal_configured: false`, and the numbers are unchanged.
 
 ## What it models
 
@@ -225,8 +237,9 @@ the daily quota runs out the template comes back and says why.
 | --- | --- |
 | `POST /api/quote` | price one invoice: `{amount, corridor, payment}` |
 | `POST /api/explain` | the same, plus an explanation and the tool trace |
-| `GET /api/config` | corridors, products, dates, disclaimer |
-| `GET /api/health` | rate staleness and whether a model is configured |
+| `POST /api/paypal/invoice` | create a **draft invoice in the PayPal sandbox** for the amount just priced, and read it back |
+| `GET /api/config` | corridors, products, dates, disclaimer, PayPal status |
+| `GET /api/health` | rate staleness, whether a model is configured, whether PayPal is |
 
 Money is serialised as a **string**, never a float — a float would reintroduce
 at the last moment exactly the rounding drift the engine spends its time

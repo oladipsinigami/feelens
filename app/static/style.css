@@ -613,3 +613,33 @@ summary:focus-visible {
   .breakdown th.src, .breakdown td.src { display: none; }
   .headline-value { font-size: 2.1rem; }
 }
+
+/* --- PayPal invoice ---------------------------------------------------- */
+
+/* The one card on the page that produced something outside this process, so it
+   is marked as such rather than blending in with the modelled sections. */
+
+.paypal { border-left: 3px solid var(--accent); }
+
+.invoice-id {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  margin: 1rem 0 0.75rem;
+  word-break: break-all;
+}
+
+.paypal-result { margin-top: 1rem; }
+
+.paypal-links { margin: 0.75rem 0; font-size: 0.9rem; }
+
+.paypal-observed,
+.paypal-not-observed {
+  font-size: 0.86rem;
+  margin: 0.35rem 0 0;
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--rule);
+}
+
+.paypal-observed { color: var(--accent); }
+.paypal-not-observed { color: var(--warn); }

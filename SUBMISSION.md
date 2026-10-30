@@ -55,6 +55,11 @@ Pick an amount, the client's country, and how the money arrives. FeeLens returns
   hypothetical everywhere, because FeeLens prices no other provider
 - **an explanation** in plain language, from a language model when one is
   configured and from a deterministic template when it is not
+- **a real invoice in PayPal.** One button calls PayPal's Invoicing API
+  (`POST /v2/invoicing/invoices`), reads the invoice back, and shows the id,
+  status and amount PayPal returned. The invoice is `sandbox_observed`; the fee
+  is still `modeled`, because creating an invoice does not charge it. The card
+  says both, in those words.
 
 ## How we built it
 
@@ -143,10 +148,11 @@ after the result.
 
 ## What's next
 
-- **Calibration against a real sandbox capture.** The PayPal client and the
-  modelled-vs-observed reconciliation are built and tested; wiring them into the
-  deployed app needs credentials in the hosting environment, which we deliberately
-  kept out.
+- **Calibration against a real sandbox payment.** The invoice is now created
+  through the Invoicing API, but an invoice is not a payment. Capturing one and
+  reconciling PayPal's `seller_receivable_breakdown` against the model is the
+  next step, and the reconciliation is already built and tested in
+  `app/paypal/reconcile.py`.
 - **CSV import.** A merchant exports their Transaction Search CSV and FeeLens
   compares PayPal's reported `fee_amount` against the model, per corridor, on
   their own volume. This is the honest way to get a merchant's *effective* rate —

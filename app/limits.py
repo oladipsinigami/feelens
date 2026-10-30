@@ -65,6 +65,11 @@ class VisitorLimiter:
     def window_minutes(self) -> int:
         return max(1, round(self._window / 60))
 
+    @property
+    def max_per_window(self) -> int:
+        """The allowance itself, for reporting. Not used to enforce anything."""
+        return self._max
+
     def take(self, address: str) -> Decision:
         """Record one explanation attempt, or refuse it and say for how long."""
         now = self._clock()

@@ -6,7 +6,7 @@ tier that says exactly that and nothing in the UI may present it as anything
 else.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 SANDBOX_OBSERVED = "sandbox_observed"
@@ -45,6 +45,67 @@ class Order:
     status: str
     approve_url: str
     raw: dict
+
+
+@dataclass(frozen=True)
+class Invoice:
+    """A real PayPal invoice, created through the Invoicing API.
+
+    This is the one object FeeLens produces that exists inside PayPal. Its
+    `tier` is `sandbox_observed` because the *invoice* was observed — PayPal
+    returned an id and a page a buyer can open. The *fee* on that invoice is
+    still modelled, and the payload must say so. Confusing the two would be the
+    exact dishonesty the three tiers exist to prevent.
+    """
+
+    id: str
+    status: str
+    invoice_number: str
+    amount: Decimal
+    currency: str
+    recipient_view_url: str
+    invoicer_view_url: str
+    create_time: str
+    tier: str = SANDBOX_OBSERVED
+    raw: dict = field(default_factory=dict, compare=False)
+
+    @classmethod
+    def from_create(cls, body: dict, fallback_number: str = "") -> "Invoice":
+        """Parse a create/get invoice response.
+
+        `POST /v2/invoicing/invoices` returns only a self link, so the caller
+        re-reads the invoice and passes that body here. Both shapes are accepted
+        because the difference is a PayPal implementation detail, not ours.
+        """
+        invoice_id = body.get("id")
+        if not invoice_id:
+            raise MalformedResponse("invoice response has no id")
+
+        detail = body.get("detail") or {}
+        amount = body.get("amount") or {}
+        currency = amount.get("currency_code") or detail.get("currency_code")
+        value = amount.get("value")
+        if not currency or value is None:
+            raise MalformedResponse(
+                "invoice response has no amount/currency_code; an invoice whose "
+                "value we cannot read is not evidence of anything"
+            )
+
+        metadata = detail.get("metadata") or {}
+        recipient_url = metadata.get("recipient_view_url") or ""
+        invoicer_url = metadata.get("invoicer_view_url") or ""
+
+        return cls(
+            id=invoice_id,
+            status=body.get("status", ""),
+            invoice_number=detail.get("invoice_number") or fallback_number,
+            amount=Decimal(str(value)),
+            currency=currency,
+            recipient_view_url=recipient_url,
+            invoicer_view_url=invoicer_url,
+            create_time=metadata.get("create_time", ""),
+            raw=body,
+        )
 
 
 @dataclass(frozen=True)
