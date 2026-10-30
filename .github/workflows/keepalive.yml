@@ -1,0 +1,68 @@
+name: keepalive
+
+# Render's free tier spins a web service down after 15 minutes of inactivity, and
+# the first request afterwards takes 20–60 seconds. A judge who clicks the Devpost
+# link during that window sees a blank page and may simply close it, which costs
+# the one score this project cannot recover: presentation.
+#
+# So this pings /api/health on a schedule. It is not monitoring — a red X here
+# does not mean the code is broken — so every failure path exits 0 and raises a
+# warning instead. A red check on a public repo reads as "their tests fail".
+#
+# Two honest limits:
+#
+# 1. GitHub delays scheduled runs under load, sometimes by 10–15 minutes. A run
+#    that slips past 15 minutes lets the service sleep anyway. This reduces cold
+#    starts; it does not eliminate them.
+# 2. Render's free plan gives 750 instance hours a month, and a month is ~730
+#    hours. Keeping one service awake around the clock would spend nearly all of
+#    it and starve the other free services on the account. The window below is
+#    06:00–23:55 UTC — about 18 hours a day, ~547 hours a month — which covers
+#    US and European working hours, when judging is most likely to happen.
+#
+# GitHub also disables scheduled workflows on a public repo after 60 days with no
+# activity. The judging period ends 2026-12-15, well inside that.
+
+on:
+  schedule:
+    - cron: "*/5 6-23 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A slow run must not stack up behind the next one.
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Wake the free instance
+        run: |
+          url="https://feelens-su23.onrender.com/api/health"
+
+          # The first request after a sleep both triggers the wake and waits for
+          # it, so the timeout is generous and a failure is retried rather than
+          # treated as an outage.
+          for attempt in 1 2 3; do
+            code=$(curl -sS -o /tmp/health.json -w "%{http_code}" \
+              --max-time 90 \
+              -H "User-Agent: feelens-keepalive" \
+              "$url" || echo "000")
+
+            if [ "$code" = "200" ]; then
+              echo "awake after attempt $attempt"
+              python -c "import json;d=json.load(open('/tmp/health.json'));print('tier',d['tier'],'| fx',d['fx_snapshot_date'],'| paypal',d.get('paypal_configured'))"
+              exit 0
+            fi
+
+            echo "attempt $attempt: HTTP $code"
+            sleep 15
+          done
+
+          echo "::warning::/api/health did not return 200 in three attempts; the service may be asleep or down"
+          exit 0
