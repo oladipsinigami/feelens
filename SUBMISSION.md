@@ -202,10 +202,11 @@ and the page says so.
 - [ ] Video uploaded to YouTube, **public**, under 3:00
 - [ ] Repo public with MIT detected in the About section — **done**
 - [ ] Repo homepage links the live demo — **done** (`https://feelens-su23.onrender.com`)
-- [ ] Live app awake and warm when judging starts
-- [ ] Uptime monitor pinging `/api/health` every 10 min (free tier sleeps after 15)
-- [ ] Render API key revoked
+- [ ] Live app awake and warm when judging starts — **done**: `.github/workflows/keepalive.yml` pings `/api/health` every 5 min, 06:00–23:55 UTC
+- [ ] Exchange rate inside its four-day window through 2026-12-15 — **done**: `.github/workflows/refresh-fx.yml` refreshes the snapshot every Monday 05:30 UTC
+- [ ] **Render API key revoked** — still live in the Render account; revoke it
+      (Account Settings → API Keys). Nothing in the deployment depends on it.
 - [ ] OpenRouter key rotated after the hackathon
 - [ ] `FEELENS_ARCHITECTURE.md` and `FEELENS_BUILD_PROMPT.md` resolved — they are
       committed, unlinked from the README, and still contain "Use APIMatic" lines
-      that are no longer true
+      that are no longer true. Delete or mark superseded before the repo is judged.
