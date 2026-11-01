@@ -221,6 +221,14 @@ Each of these is a stated reason, not an omission:
   instead: the `direct` option carries a caveat that it is PayPal's send-money
   product, not its invoicing product, and that a payment which does not qualify
   for Seller Protection may leave little recourse if the client disputes it.
+- **An invoice smaller than its own fixed fee.** The fixed fee is per
+  transaction and does not shrink, so a 10 INR invoice would be charged 0.49 USD
+  out of 0.10 USD and net a negative number — with an effective rate in the
+  hundreds of percent. The subtraction is correct and the answer is not, and the
+  fee schedule says nothing about how PayPal treats a payment below its own
+  fixed fee. So the engine **refuses** (`422` with the reason), rather than
+  printing a confident negative. `direct` has no fixed fee and still prices at
+  any size, so the refusal is never the only answer.
 
 ## Run it
 

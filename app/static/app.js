@@ -184,6 +184,10 @@ function showError(message) {
   const box = $("form-error");
   box.textContent = message;
   box.hidden = false;
+  // A refusal leaves the previous quote on screen, which reads as "this is the
+  // answer and also there is a complaint about it". The numbers on screen would
+  // belong to the last successful amount, not the one in the box, so they go.
+  $("results").hidden = true;
 }
 
 function hideError() {
@@ -205,8 +209,11 @@ function render(data) {
 
   $("net-received").textContent =
     `${SYMBOLS[receiveCurrency] || ""}${decimalText(current.net_received)}`;
+  // "of the 6,699.45 USD you receive" was wrong: that figure is the gross the
+  // invoice converts to, and the number you receive is the headline above it.
+  // Saying otherwise made a correct subtraction look like broken arithmetic.
   $("headline-sub").textContent =
-    `PayPal keeps ${money(current.total_fees, receiveCurrency)} of the ${money(current.gross_received, receiveCurrency)} you receive.`;
+    `PayPal keeps ${money(current.total_fees, receiveCurrency)} of the ${money(current.gross_received, receiveCurrency)} the invoice converts to.`;
 
   $("fact-invoice").textContent = money(data.amount, invoiceCurrency);
   $("fact-fees").textContent = money(current.total_fees, receiveCurrency);

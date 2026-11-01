@@ -148,7 +148,9 @@ becomes safe to use for the part it is actually good at.
 We also learned that honesty is a feature you can demo. The app says "not a
 PayPal quote", prices the other side of a saving, labels a benchmark
 hypothetical, and warns about Seller Protection *before* the choice rather than
-after the result.
+after the result. It also refuses to answer when the answer would be nonsense: an
+invoice smaller than PayPal's fixed fee is a `422` with the reason attached, not
+a confident negative net.
 
 ## What's next
 

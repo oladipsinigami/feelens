@@ -28,6 +28,7 @@ from app.corridors import (
 from app.engine import compare_paths
 from app.engine.models import (
     MODELLED,
+    PaymentTooSmallError,
     Transaction,
     UnsupportedCombinationError,
     UnsupportedCurrencyError,
@@ -197,7 +198,13 @@ class FeeTools:
 
         try:
             comparison = compare_paths(tx, self._fees, self._snapshot)
-        except (UnsupportedCurrencyError, UnsupportedCombinationError) as exc:
+        except (
+            UnsupportedCurrencyError,
+            UnsupportedCombinationError,
+            PaymentTooSmallError,
+        ) as exc:
+            # The model gets the same reason a visitor gets, so it can say why
+            # rather than inventing a number for an invoice the engine refuses.
             return {"error": str(exc)}
 
         payload = quote_payload(

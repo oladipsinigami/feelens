@@ -57,6 +57,22 @@ class FeeConfigError(ValueError):
     """
 
 
+class PaymentTooSmallError(ValueError):
+    """The invoice would collect less than the fees charged against it.
+
+    PayPal's fixed fee is per transaction and does not scale down with the
+    amount, so a 1 INR invoice is charged 0.49 USD out of a 0.01 USD payment and
+    the net comes out negative — with an effective rate in the thousands of
+    percent. The subtraction is right; the answer is not.
+
+    The fee schedule FeeLens cites says nothing about how PayPal handles a
+    payment smaller than its own fixed fee, so reporting `-0.48 USD` would state
+    an outcome nobody has observed. Refusing, and naming the size at which the
+    model stops being meaningful, is the honest option. A product with no fixed
+    fee still prices at any size, so the refusal is never the only answer.
+    """
+
+
 @dataclass(frozen=True)
 class Transaction:
     amount: Decimal

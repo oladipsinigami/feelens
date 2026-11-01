@@ -20,13 +20,14 @@ cannot change a number: `/api/quote` and `/api/explain` both price through
 
 from __future__ import annotations
 
+import hashlib
 import os
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -52,6 +53,7 @@ from app.engine.calculator import FEES_PATH, FX_PATH
 from app.engine.models import (
     MODELLED,
     FeeConfigError,
+    PaymentTooSmallError,
     Transaction,
     UnsupportedCombinationError,
     UnsupportedCurrencyError,
@@ -63,6 +65,10 @@ from app.serialize import quote_payload
 load_dotenv()
 
 STATIC = Path(__file__).resolve().parent / "static"
+
+# Referenced from index.html and versioned together, so changing either file
+# changes the URL a browser asks for.
+ASSET_FILES = ("app.js", "style.css")
 
 DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
 
@@ -349,7 +355,13 @@ def create_app(
     def _comparison(tx: Transaction):
         try:
             return compare_paths(tx, fees, snapshot)
-        except (UnsupportedCurrencyError, UnsupportedCombinationError) as exc:
+        except (
+            UnsupportedCurrencyError,
+            UnsupportedCombinationError,
+            PaymentTooSmallError,
+        ) as exc:
+            # All three are the caller's input meeting a limit of the model, not
+            # a failure of the service, so they are 422 with the reason attached.
             raise HTTPException(status_code=422, detail=str(exc))
         except FeeConfigError as exc:
             # A malformed config is our fault, not the caller's.
@@ -656,7 +668,42 @@ def create_app(
 
     @app.get("/")
     def index():
-        return FileResponse(STATIC / "index.html")
+        """The page, with its asset URLs tied to their contents.
+
+        `app.js` and `style.css` are referenced as `/static/app.js?v=<hash>`, so
+        changing either file changes its URL. Without that, a browser can keep
+        running a cached copy of the old script against a new API after a deploy
+        — which is exactly what happened while editing the headline copy: the
+        server had the new file, the tab kept executing the old one, and the page
+        looked wrong for a reason that had nothing to do with the code.
+
+        The hash is computed per request. Both files together are about 30 KB, and
+        paying that to make a stale-cache bug impossible is the right trade.
+        """
+        html = (STATIC / "index.html").read_text(encoding="utf-8")
+        digest = hashlib.sha256()
+        for name in ASSET_FILES:
+            digest.update((STATIC / name).read_bytes())
+        version = digest.hexdigest()[:10]
+        for name in ASSET_FILES:
+            html = html.replace(f"/static/{name}", f"/static/{name}?v={version}")
+        return HTMLResponse(html)
+
+    @app.middleware("http")
+    async def revalidate_static_assets(request, call_next):
+        """Make a browser check with us before reusing the page or its script.
+
+        `StaticFiles` sends no `Cache-Control`, so browsers fall back to
+        heuristic freshness and a plain reload can reuse a cached `app.js`
+        without asking. `no-cache` still allows the file to be stored; it only
+        requires revalidation, which costs a 304 because StaticFiles already
+        sends an ETag. The version query above is the stronger guarantee; this
+        covers the HTML itself, which has no version to change.
+        """
+        response = await call_next(request)
+        if request.url.path == "/" or request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 

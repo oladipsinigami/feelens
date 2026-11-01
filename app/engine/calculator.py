@@ -20,6 +20,7 @@ from .models import (
     FeeConfig,
     FeeConfigError,
     FeeLine,
+    PaymentTooSmallError,
     Rule,
     Transaction,
     UnsupportedCombinationError,
@@ -325,6 +326,28 @@ def calculate_effective_cost(
     payer_side_total = total_of(payer_lines)
     gross = _money(tx.amount * rate)
     net = gross - total_fees
+
+    # A payment smaller than the fees charged against it is not a quote, it is a
+    # nonsense number. The fixed fee is per transaction and does not scale down,
+    # so a 1 INR invoice is charged 0.49 USD out of a 0.01 USD payment: the
+    # subtraction is right and the answer is not, because the cited fee schedule
+    # says nothing about how PayPal treats a payment below its own fixed fee.
+    # Refusing names the size at which the model stops meaning anything; a
+    # product without a fixed fee still prices at any size.
+    if net < 0:
+        fixed_total = _money(
+            sum((line.fixed_amount for line in receiver_lines), Decimal("0"))
+        )
+        raise PaymentTooSmallError(
+            f"This invoice would collect {gross} {receive} and be charged "
+            f"{total_fees} {receive} in fees, of which {fixed_total} {receive} is "
+            "a fixed per-transaction fee that does not shrink with the amount. "
+            "The net would be negative. PayPal's published fee schedule does not "
+            "say how it handles a payment smaller than its own fixed fee, so "
+            "FeeLens will not model one — increase the amount, or choose a "
+            "product with no fixed fee."
+        )
+
     effective = (
         (total_fees / gross * Decimal(100)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         if gross
