@@ -28,20 +28,22 @@ applied — the product rate, an international surcharge, and the receiver's
 currency-conversion spread — and none of them were visible when the invoice was
 written.
 
-The cost of getting it wrong is not obvious. On that €5,000 invoice:
+The cost of getting it wrong is not obvious. On that €5,000 invoice, at the ECB
+snapshot of 2026-10-30 (the snapshot date is named because the rate is refreshed
+weekly — see "Keeping the rate current" in `DEPLOY.md`):
 
 | How the money arrives | PayPal keeps | You keep | Effective rate |
 | --- | --- | --- | --- |
-| Client sends money directly | 417.57 USD | 5,157.43 USD | 7.49% |
-| Invoice, paid from a PayPal account | **445.94 USD** | **5,129.06 USD** | **8.00%** |
-| Invoice, paid by card or wallet | 418.06 USD | 5,156.94 USD | 7.50% |
+| Client sends money directly | 418.39 USD | 5,167.61 USD | 7.49% |
+| Invoice, paid from a PayPal account | **446.81 USD** | **5,139.19 USD** | **8.00%** |
+| Invoice, paid by card or wallet | 418.88 USD | 5,167.12 USD | 7.50% |
 
-Same money, same client, same day. **28.37 USD** apart, purely because of which
+Same money, same client, same day. **28.42 USD** apart, purely because of which
 button the client presses. Nobody is told this before the invoice is sent.
 
 And the drag is worst where it matters most. A 200 INR invoice through PayPal
-Invoicing costs **30.95%** — not because any rate is high, but because a fixed
-fee of 0.49 USD is 23% of a 2.10 USD payment.
+Invoicing costs **30.81%** — not because any rate is high, but because a fixed
+fee of 0.49 USD is 23% of a 2.11 USD payment.
 
 ## What it does
 
@@ -59,10 +61,10 @@ Pick the amount, the client's country, and how the money arrives. You get:
   USD removes your 3% conversion spread, but it hands the client a USD invoice,
   and a German client paying in EUR is charged a 4% spread instead. That side is
   priced by the same engine, not described in a footnote: on €5,000 you keep
-  167.25 USD more and your client pays 223.00 USD more, so the pair of you are
-  55.75 USD worse off. Repeated monthly, 669.00 USD a year worse.
+  167.58 USD more and your client pays 223.44 USD more, so the pair of you are
+  55.86 USD worse off. Repeated monthly, 670.32 USD a year worse.
 - **a 1% rail, for scale** — the same gross through a hypothetical 1% rail
-  leaves 5,519.25 USD against PayPal's 5,129.06 USD. Labelled hypothetical
+  leaves 5,530.14 USD against PayPal's 5,139.19 USD. Labelled hypothetical
   everywhere, because FeeLens prices no other provider.
 - **the product caveat, before the choice** — "direct send" is PayPal's
   send-money product, not its invoicing product, and it says so next to the
@@ -89,7 +91,7 @@ them.
 Then the answer is checked, after generation, against the tool output:
 
 1. **Number provenance.** Every figure in the prose must appear in a tool
-   result. "About 5,200" when the engine said 5,129.06 is rejected — not
+   result. "About 5,200" when the engine said 5,139.19 is rejected — not
    corrected, rejected.
 2. **Rule citation.** At least one rule id must be cited, and every cited id
    must be one that appeared in the quote.
@@ -232,7 +234,7 @@ deterministic template, and `/api/health` says so (sample response, as of this
 writing):
 
 ```json
-{"status":"ok","fee_retrieved_date":"2026-10-26","fx_snapshot_date":"2026-10-27",
+{"status":"ok","fee_retrieved_date":"2026-10-26","fx_snapshot_date":"2026-10-30",
  "fx_age_days":0,"fx_stale":false,"model_configured":false,"tier":"modeled"}
 ```
 

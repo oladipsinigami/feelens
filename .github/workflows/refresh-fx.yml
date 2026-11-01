@@ -1,0 +1,97 @@
+name: refresh-fx
+
+# The exchange-rate snapshot is a committed file, not a live lookup: the engine
+# reads a frozen ECB rate so a quote is reproducible and a test can assert an
+# exact figure. The cost of that choice is that the file ages, and after four
+# calendar days the engine starts printing a staleness note on every quote.
+#
+# A submission that promises to stay live until 2026-12-15 cannot carry that note
+# for six weeks. So this refreshes the snapshot weekly and commits it.
+#
+# What it deliberately does NOT do:
+#
+# - It does not touch `tests/fixtures/`, which is a frozen copy the suite asserts
+#   against. Updating it would silently change what the tests mean.
+# - It does not force anything. `scripts/refresh_fx.py` refuses to move backwards,
+#   refuses to write when the source has nothing newer, and writes atomically — so
+#   a failed or partial fetch leaves the committed snapshot in place.
+# - It does not fail the build when the rate source is unreachable. A red X on a
+#   public repo reads as "their code is broken", and a week-old rate is not that.
+#   It warns instead, exactly as the keepalive workflow does.
+#
+# The trade-off, stated because it is real: a commit here triggers a Render
+# rebuild, and the numbers on the page move by whatever the euro did that week.
+# The page always prints its snapshot date, so the movement is visible rather
+# than hidden, and the README quotes its figures against a named date for the
+# same reason.
+#
+# Monday 05:30 UTC: after Friday's ECB publication, before the European working
+# day, and never in the middle of a demo.
+
+on:
+  schedule:
+    - cron: "30 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-fx
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the one dependency the script needs
+        run: pip install --quiet httpx
+
+      - name: Refresh the snapshot
+        id: refresh
+        run: |
+          if ! python scripts/refresh_fx.py; then
+            echo "::warning::could not refresh the FX snapshot; the committed one is unchanged"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --quiet -- app/data/fx_snapshot.json; then
+            echo "nothing newer published; no commit"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push
+        if: steps.refresh.outputs.changed == 'true'
+        run: |
+          git config user.name "feelens-fx-bot"
+          git config user.email "actions@github.com"
+          git add app/data/fx_snapshot.json
+          git commit -m "Refresh the ECB exchange-rate snapshot
+
+          Committed by .github/workflows/refresh-fx.yml. The engine reads a frozen
+          snapshot so a quote is reproducible; this keeps it inside the four-day
+          window after which every page states that its rate is going stale.
+
+          Only app/data/fx_snapshot.json is touched. tests/fixtures/ is a frozen
+          copy that the suite asserts exact figures against."
+          git push
+
+      - name: Say what happened
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          snap = json.loads(Path("app/data/fx_snapshot.json").read_text())
+          print("snapshot date:", snap["retrieved_date"])
+          for code, rate in snap["rates_to_usd"].items():
+              print(f"  {code} {rate}")
+          PY

@@ -131,15 +131,16 @@ and the 44 exists to keep this deployment below it. Setting
 ## Verifying the deployment
 
 `/api/health` is the honest answer to "is this demo trustworthy right now".
-A sample response, as of this writing:
+A sample response from a deployment with **no model key set** — the live one
+reports `model_configured: true` and a lower `fx_age_days` after each refresh:
 
 ```json
 {
   "status": "ok",
   "version": "0.2.0",
   "fee_retrieved_date": "2026-10-26",
-  "fx_snapshot_date": "2026-10-27",
-  "fx_age_days": 0,
+  "fx_snapshot_date": "2026-10-30",
+  "fx_age_days": 2,
   "fx_stale": false,
   "model_configured": false,
   "tier": "modeled"
@@ -194,18 +195,47 @@ Two limits, stated rather than hidden:
 The job exits 0 even when the ping fails and raises a `::warning::` instead. A
 red X on a public repo reads as "their tests fail", and this is not a test.
 
-## Refreshing the rates before a demo
+## Keeping the rate current
 
-The snapshot is dated and the app is designed to admit it. To refresh:
+The snapshot is dated and the app is designed to admit it, but a submission that
+promises to stay live until 2026-12-15 cannot carry a staleness note on every
+quote for six weeks. `.github/workflows/refresh-fx.yml` therefore refreshes the
+snapshot **weekly**, on Monday 05:30 UTC, and commits it:
+
+```bash
+gh workflow run refresh-fx    # or wait for Monday
+gh run watch
+```
+
+To do it by hand instead:
 
 ```bash
 python scripts/refresh_fx.py --dry-run   # show every rate movement, write nothing
 python scripts/refresh_fx.py             # write the snapshot
 ```
 
-then update `tests/fixtures/fx_snapshot.json` **separately and deliberately**,
+Then update `tests/fixtures/fx_snapshot.json` **separately and deliberately**,
 recomputing the expected numbers. The pricing tests read the frozen fixture on
 purpose: if they read the live file, every legitimate refresh would break the
 suite and the tempting repair would be to edit the expected values until it
 passed. (One test opens the shipped snapshot to confirm it parses; it asserts no
-figures.)
+figures.) The workflow never touches the fixture for that reason.
+
+Three things the workflow will not do, and why:
+
+- **Force a write.** The script refuses to move backwards and refuses to write
+  when the source has nothing newer, so a run on a week with no ECB publication
+  (a TARGET holiday) is a no-op rather than a duplicate commit.
+- **Fail the build when the rate source is down.** It raises a `::warning::` and
+  leaves the committed snapshot in place. A red X reads as broken code, and a
+  week-old rate is not that.
+- **Hide the movement.** A refresh commits, which rebuilds the service, and the
+  page re-prices by whatever the euro did that week. Every surface prints the
+  snapshot date, and the README quotes its figures against a named date, so the
+  movement is visible rather than silent.
+
+After four calendar days without a refresh the engine prints a staleness note on
+every quote and `/api/health` reports `fx_stale: true`. That threshold is the
+reason the job is weekly rather than monthly: it keeps the live page inside the
+window it claims to be inside.
+
