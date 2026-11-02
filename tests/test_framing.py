@@ -107,7 +107,7 @@ def test_no_client_side_when_nothing_moves(fees, rates):
     payload = quote_payload(
         comparison,
         amount=Decimal("5000"),
-        corridor={"invoice_currency": "USD", "client_country": "DE"},
+        corridor={"client_currency": "USD", "client_country": "DE"},
         payment=PAYMENT_OPTIONS[1],
         disclaimer="test",
         tier="modeled",

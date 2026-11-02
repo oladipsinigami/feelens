@@ -138,6 +138,14 @@ def quote_payload(
         "corridor": corridor,
         "payment": payment,
         "amount": str(amount),
+        # The invoice currency is an input of its own: the client's corridor
+        # says where they are, not what the invoice is denominated in. Every
+        # surface reads this key rather than inferring it from the corridor.
+        "invoice_currency": (
+            transaction.invoice_currency
+            if transaction is not None
+            else corridor.get("client_currency", "")
+        ),
         "current": breakdown_payload(comparison.current),
         "optimized": breakdown_payload(comparison.optimized),
         "savings": str(savings),

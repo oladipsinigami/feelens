@@ -394,18 +394,25 @@ def with_invoice_currency(
     `keep_payer_currency` is how the payer's side of the same route is priced.
     By default the payer is assumed to follow the invoice into the new currency,
     which is what makes the route cheap. Passing True keeps them in whatever
-    they actually hold, so the conversion spread the invoice currency move hands
-    them becomes a priced line instead of a sentence in an assumption.
+    they actually hold — the client's currency when the request said what that
+    is — so the conversion spread the invoice currency move hands them becomes
+    a priced line instead of a sentence in an assumption.
     """
     amount = _money(tx.amount * rate_between(snapshot, tx.invoice_currency, currency))
+    payer_currency = tx.payer_currency
+    if keep_payer_currency and tx.client_currency:
+        payer_currency = tx.client_currency
+    elif not keep_payer_currency:
+        payer_currency = currency
     return Transaction(
         amount=amount,
         invoice_currency=currency,
-        payer_currency=tx.payer_currency if keep_payer_currency else currency,
+        payer_currency=payer_currency,
         payer_region=tx.payer_region,
         receive_currency=tx.receive_currency,
         region=tx.region,
         account_type=tx.account_type,
         transaction_type=tx.transaction_type,
         payment_method=tx.payment_method,
+        client_currency=tx.client_currency,
     )

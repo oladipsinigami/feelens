@@ -164,6 +164,26 @@ summary:focus-visible {
 
 .amount-row input[type="text"]:focus { box-shadow: none; }
 
+/* The invoice currency sits inside the amount field because it is part of the
+   amount, not a separate question: "5000" means nothing until it is 5000 of
+   something. */
+.amount-row select.amount-currency {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 0 0.55rem;
+  border: 0;
+  border-left: 1px solid var(--rule);
+  border-radius: 0;
+  background: #f1eee8;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.amount-row select.amount-currency:focus { box-shadow: none; }
+
 .help {
   margin: 0.4rem 0 0;
   font-size: 0.8rem;

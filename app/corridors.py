@@ -5,9 +5,11 @@ corridor cannot appear in the interface without a rate behind it, and cannot
 quietly disappear from the interface while the API still quotes it.
 
 Five corridors, all into USD: the receiver is a US business account holding USD.
-A corridor is a (client country, invoice currency) pair, not just a currency —
-the 1.50% international surcharge keys off the country, and the two can disagree
-in ways that change the total.
+A corridor is a (client country, client currency) pair, not just a currency —
+the 1.50% international surcharge keys off the country, and the invoice may be
+issued in a different currency from the one the client holds. Those are two
+separate inputs: `client_currency` is what the client's balance is likely in,
+`invoice_currency` on the request is what the invoice is denominated in.
 """
 
 RECEIVE_CURRENCY = "USD"
@@ -16,36 +18,59 @@ ACCOUNT_TYPE = "business"
 
 CORRIDORS = (
     {
-        "invoice_currency": "EUR",
+        "client_currency": "EUR",
         "client_country": "DE",
         "country": "Germany",
         "currency_name": "Euro",
     },
     {
-        "invoice_currency": "GBP",
+        "client_currency": "GBP",
         "client_country": "GB",
         "country": "United Kingdom",
         "currency_name": "Pound sterling",
     },
     {
-        "invoice_currency": "PHP",
+        "client_currency": "PHP",
         "client_country": "PH",
         "country": "Philippines",
         "currency_name": "Philippine peso",
     },
     {
-        "invoice_currency": "AUD",
+        "client_currency": "AUD",
         "client_country": "AU",
         "country": "Australia",
         "currency_name": "Australian dollar",
     },
     {
-        "invoice_currency": "INR",
+        "client_currency": "INR",
         "client_country": "IN",
         "country": "India",
         "currency_name": "Indian rupee",
     },
 )
+
+# What an invoice can be denominated in. USD comes first because it is the
+# currency the receiving account holds, and issuing in it removes the receiver's
+# conversion entirely; the rest are the currencies the corridors already price.
+USD_CURRENCY_NAME = "US dollar"
+
+
+def invoice_currencies() -> list:
+    """Every currency an invoice can be issued in, in display order.
+
+    Derived from the corridor list rather than written out again, so a corridor
+    cannot be added without its currency becoming selectable, and a currency
+    cannot be selectable without a corridor that prices it.
+    """
+    options = [{"code": RECEIVE_CURRENCY, "name": USD_CURRENCY_NAME}]
+    seen = {RECEIVE_CURRENCY}
+    for item in CORRIDORS:
+        code = item["client_currency"]
+        if code in seen:
+            continue
+        seen.add(code)
+        options.append({"code": code, "name": item["currency_name"]})
+    return options
 
 # Three products, because "invoice" is not one price. PayPal's invoicing table
 # splits by how the client funds the payment, and the card row costs the same
@@ -96,11 +121,11 @@ DISCLAIMER = (
 )
 
 
-def corridor(invoice_currency: str) -> dict:
+def corridor(client_currency: str) -> dict:
     for item in CORRIDORS:
-        if item["invoice_currency"] == invoice_currency:
+        if item["client_currency"] == client_currency:
             return item
-    raise KeyError(invoice_currency)
+    raise KeyError(client_currency)
 
 
 def payment_option(option_id: str) -> dict:

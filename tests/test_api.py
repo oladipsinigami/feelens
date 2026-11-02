@@ -40,7 +40,7 @@ def quote(client, **overrides):
 def test_config_lists_exactly_the_five_corridors(client):
     corridors = client.get("/api/config").json()["corridors"]
 
-    assert [c["invoice_currency"] for c in corridors] == ["EUR", "GBP", "PHP", "AUD", "INR"]
+    assert [c["client_currency"] for c in corridors] == ["EUR", "GBP", "PHP", "AUD", "INR"]
     assert all(c["client_country"] for c in corridors)
 
 

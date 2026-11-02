@@ -45,9 +45,17 @@ a fixed fee that hurts a small invoice.
 """
 
 
-def user_prompt(amount: str, corridor: str, payment: str, question: str | None) -> str:
+def user_prompt(
+    amount: str,
+    corridor: str,
+    payment: str,
+    question: str | None,
+    invoice_currency: str | None = None,
+) -> str:
+    issued_in = (invoice_currency or corridor).upper()
     lines = [
-        f"Invoice amount: {amount} {corridor}.",
+        f"Invoice amount: {amount} {issued_in}.",
+        f"Client corridor: {corridor} (the client's local currency).",
         f"Payment product: {payment}.",
         "The receiving account is a US business account holding USD.",
     ]

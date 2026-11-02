@@ -32,14 +32,15 @@
             value="5000.00"
             aria-describedby="amount-help"
           />
+          <select id="invoice-currency" class="amount-currency" aria-label="Invoice currency"></select>
         </div>
-        <p class="help" id="amount-help">The amount you are billing, in your client's currency.</p>
+        <p class="help" id="amount-help">The amount you are billing, in the currency you issue the invoice in.</p>
       </div>
 
       <div class="field">
         <label for="corridor">Where is your client?</label>
         <select id="corridor" name="corridor"></select>
-        <p class="help" id="corridor-help">You are paid into a US business account holding USD.</p>
+        <p class="help" id="corridor-help">The client's country sets the cross-border fee. Their local currency does not have to match the invoice.</p>
       </div>
 
       <fieldset class="field">

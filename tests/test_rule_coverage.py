@@ -38,8 +38,8 @@ def rates():
 def transaction(corridor, option, payer_currency=None, receive="USD"):
     return Transaction(
         amount=Decimal("1000.00"),
-        invoice_currency=corridor["invoice_currency"],
-        payer_currency=payer_currency or corridor["invoice_currency"],
+        invoice_currency=corridor["client_currency"],
+        payer_currency=payer_currency or corridor["client_currency"],
         payer_region=corridor["client_country"],
         receive_currency=receive,
         region="US",

@@ -186,7 +186,17 @@ products — a rule nothing reaches is a claim the tool does more than it does.
 
 Five corridors, all into a **US business account holding USD**: `EUR→USD`,
 `GBP→USD`, `PHP→USD`, `AUD→USD`, `INR→USD`. A corridor is a (client country,
-currency) pair, not just a currency — the 1.50% surcharge keys off the country.
+client currency) pair, not just a currency — the 1.50% surcharge keys off the
+country.
+
+The **invoice currency is a separate input**. The corridor says where the client
+is and therefore whether the cross-border surcharge applies; the invoice can be
+issued in USD or in any currency the snapshot converts. Invoicing a German client
+in USD removes the 3.00% receiver-side conversion while keeping the 1.50%
+cross-border surcharge, and the app prices that difference rather than assuming
+the invoice must match the client's money. The payer-side 4.00% spread, if the
+client pays from their own balance, is stated as an assumption and never
+deducted from the receiver's net.
 
 Three payment products, because "invoice" is not one price. PayPal's invoicing
 table splits by how the client funds it, and the card row costs the same
@@ -210,8 +220,6 @@ Each of these is a stated reason, not an omission:
 - **Holding a foreign balance and converting later.** Not available for this
   account, so it is rejected with that reason rather than offered and guessed
   at.
-- **An invoice already in USD.** There is no receiver-side conversion to remove,
-  so no cheaper path is claimed.
 - **Other rails.** Wise, Revolut and a bank transfer are not priced — FeeLens
   holds no sourced rate for any of them. What it does show is a **hypothetical
   1% rail** on the same gross, so the fee has a scale to be read against. It is

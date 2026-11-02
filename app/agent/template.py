@@ -75,10 +75,9 @@ def template_explanation(quote: dict) -> dict:
         }
 
     current = quote["current"]
-    corridor = quote["corridor"]
     payment = quote["payment"]
 
-    invoice_currency = corridor["invoice_currency"]
+    invoice_currency = quote["invoice_currency"]
     receive_currency = current["net_received_currency"]
 
     parts = [
@@ -131,7 +130,7 @@ def template_explanation(quote: dict) -> dict:
         if client and client.get("payer_converts") and not _is_zero(client["total"]):
             parts.append(
                 "That saving is not free: paying a "
-                f"{client['invoice_currency']} invoice from a "
+                f"{client['invoice_currency']} invoice from their "
                 f"{client['payer_currency']} balance costs your client "
                 f"{_money(client['total'], client['currency'])} in conversion "
                 "spread, so the saving is a cost moved rather than removed."

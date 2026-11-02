@@ -40,6 +40,7 @@ from app.corridors import (
     RECEIVE_CURRENCY,
     RECEIVE_REGION,
     corridor as find_corridor,
+    invoice_currencies,
     payment_option as find_payment,
 )
 from app.engine import (
@@ -131,8 +132,19 @@ def _env_int(name: str, default: int) -> int:
 
 class QuoteRequest(BaseModel):
     amount: str = Field(..., description="Invoice amount as a decimal string, e.g. '5000.00'")
-    corridor: str = Field(..., description="Invoice currency, e.g. 'EUR'")
+    corridor: str = Field(
+        ...,
+        description="The client's corridor, i.e. their local currency, e.g. 'EUR'",
+    )
     payment: str = Field(..., description="One of the payment option ids")
+    invoice_currency: str | None = Field(
+        default=None,
+        description=(
+            "The currency the invoice is issued in, e.g. 'USD'. Defaults to the "
+            "corridor's currency. Any currency with an ECB rate in the snapshot "
+            "can be priced, but the UI offers USD plus the corridor currencies."
+        ),
+    )
 
 
 class ProductsRequest(BaseModel):
@@ -144,7 +156,14 @@ class ProductsRequest(BaseModel):
     """
 
     amount: str = Field(..., description="Invoice amount as a decimal string, e.g. '5000.00'")
-    corridor: str = Field(..., description="Invoice currency, e.g. 'EUR'")
+    corridor: str = Field(
+        ...,
+        description="The client's corridor, i.e. their local currency, e.g. 'EUR'",
+    )
+    invoice_currency: str | None = Field(
+        default=None,
+        description="The currency the invoice is issued in. Defaults to the corridor's.",
+    )
 
 
 class ExplainRequest(QuoteRequest):
@@ -305,7 +324,7 @@ def create_app(
                 status_code=422,
                 detail=(
                     f"unknown corridor {currency!r}. "
-                    f"Known: {[c['invoice_currency'] for c in CORRIDORS]}"
+                    f"Known: {[c['client_currency'] for c in CORRIDORS]}"
                 ),
             )
 
@@ -336,20 +355,49 @@ def create_app(
             "caveat": option.get("caveat", ""),
         }
 
-    def _transaction(amount: Decimal, chosen_corridor: dict, chosen_payment: dict) -> Transaction:
+    def _invoice_currency(raw: str | None, chosen_corridor: dict) -> str:
+        """The currency the invoice is issued in, checked against the snapshot.
+
+        Separate from the corridor on purpose: the corridor says where the
+        client is, which decides the cross-border surcharge; the invoice
+        currency decides the FX conversion. A freelancer can invoice a German
+        client in USD, and that is a different price from invoicing them in EUR.
+
+        Refusing a currency with no ECB rate is the only honest option — pricing
+        it would mean inventing the rate the whole total depends on.
+        """
+        code = (raw or chosen_corridor["client_currency"]).strip().upper()
+        if code not in snapshot["rates_to_usd"]:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"No ECB rate for {code} in the {snapshot['retrieved_date']} "
+                    "snapshot, so an invoice in that currency cannot be costed. "
+                    f"Known: {sorted(snapshot['rates_to_usd'])}"
+                ),
+            )
+        return code
+
+    def _transaction(
+        amount: Decimal,
+        invoice_currency: str,
+        chosen_corridor: dict,
+        chosen_payment: dict,
+    ) -> Transaction:
         return Transaction(
             amount=amount,
-            invoice_currency=chosen_corridor["invoice_currency"],
+            invoice_currency=invoice_currency,
             # The client settles the invoice as issued. A payer who converts into
-            # their own currency is charged a 4% spread; that is surfaced as an
-            # assumption on the cheaper path rather than modelled as the default.
-            payer_currency=chosen_corridor["invoice_currency"],
+            # their own currency is charged the payer spread; that is surfaced as
+            # an assumption rather than deducted from the receiver's net.
+            payer_currency=invoice_currency,
             payer_region=chosen_corridor["client_country"],
             receive_currency=RECEIVE_CURRENCY,
             region=RECEIVE_REGION,
             account_type=ACCOUNT_TYPE,
             transaction_type=chosen_payment["transaction_type"],
             payment_method=chosen_payment["payment_method"],
+            client_currency=chosen_corridor["client_currency"],
         )
 
     def _comparison(tx: Transaction):
@@ -370,8 +418,9 @@ def create_app(
     def _price(request: QuoteRequest) -> dict:
         chosen_corridor = _corridor(request.corridor)
         chosen_payment = _payment(request.payment)
+        invoice_currency = _invoice_currency(request.invoice_currency, chosen_corridor)
         amount = _parse_amount(request.amount)
-        tx = _transaction(amount, chosen_corridor, chosen_payment)
+        tx = _transaction(amount, invoice_currency, chosen_corridor, chosen_payment)
         comparison = _comparison(tx)
 
         return quote_payload(
@@ -427,6 +476,13 @@ def create_app(
         return {
             "corridors": list(CORRIDORS),
             "payment_options": list(PAYMENT_OPTIONS),
+            # Only currencies the snapshot can actually convert, so the picker
+            # cannot offer a currency the engine would then refuse.
+            "invoice_currencies": [
+                item
+                for item in invoice_currencies()
+                if item["code"] in snapshot["rates_to_usd"]
+            ],
             "receive_currency": RECEIVE_CURRENCY,
             "receive_region": RECEIVE_REGION,
             "fee_retrieved_date": fees.retrieved_date,
@@ -487,11 +543,12 @@ def create_app(
         a comparison with a missing column reads as a comparison.
         """
         chosen_corridor = _corridor(request.corridor)
+        invoice_currency = _invoice_currency(request.invoice_currency, chosen_corridor)
         amount = _parse_amount(request.amount)
 
         rows = []
         for option in PAYMENT_OPTIONS:
-            tx = _transaction(amount, chosen_corridor, option)
+            tx = _transaction(amount, invoice_currency, chosen_corridor, option)
             try:
                 current = _comparison(tx).current
             except HTTPException as exc:
@@ -533,6 +590,7 @@ def create_app(
         return {
             "amount": str(amount),
             "corridor": chosen_corridor,
+            "invoice_currency": invoice_currency,
             "products": rows,
             "cheapest": cheapest["payment"]["id"] if cheapest else None,
             "dearest": dearest["payment"]["id"] if dearest else None,
@@ -557,7 +615,11 @@ def create_app(
         # the visitor rather than on the budget, and it is the common case in a
         # demo: the same quote opened twice.
         if agent.cached(
-            request.amount, request.corridor, request.payment, request.question
+            request.amount,
+            request.corridor,
+            request.payment,
+            request.question,
+            request.invoice_currency,
         ) is not None:
             decision = Decision(allowed=True)
         else:
@@ -567,6 +629,7 @@ def create_app(
             request.corridor,
             request.payment,
             request.question,
+            invoice_currency=request.invoice_currency,
             allow_model=decision.allowed,
             blocked_note=decision.note,
         )
@@ -614,7 +677,7 @@ def create_app(
         try:
             invoice = paypal.create_invoice(
                 amount=Decimal(payload["amount"]),
-                currency=payload["corridor"]["invoice_currency"],
+                currency=payload["invoice_currency"],
                 recipient_email=recipient,
                 item_name=f"FeeLens demo — {payload['payment']['label']}",
                 note=(
@@ -657,7 +720,7 @@ def create_app(
             "environment": "sandbox",
             "quote": {
                 "amount": payload["amount"],
-                "currency": payload["corridor"]["invoice_currency"],
+                "currency": payload["invoice_currency"],
                 "payment": payload["payment"]["id"],
                 "total_fees": payload["current"]["total_fees"],
                 "total_fees_currency": payload["current"]["total_fees_currency"],

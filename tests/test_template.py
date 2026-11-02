@@ -13,7 +13,7 @@ from app.agent.tools import FeeTools
 from app.corridors import CORRIDORS, PAYMENT_OPTIONS
 
 COMBINATIONS = [
-    (corridor["invoice_currency"], option["id"])
+    (corridor["client_currency"], option["id"])
     for corridor in CORRIDORS
     for option in PAYMENT_OPTIONS
 ]

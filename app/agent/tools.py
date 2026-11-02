@@ -23,6 +23,7 @@ from app.corridors import (
     RECEIVE_CURRENCY,
     RECEIVE_REGION,
     corridor as find_corridor,
+    invoice_currencies,
     payment_option as find_payment,
 )
 from app.engine import compare_paths
@@ -55,7 +56,18 @@ TOOL_SCHEMAS = [
                     },
                     "corridor": {
                         "type": "string",
-                        "description": "Invoice currency, one of EUR, GBP, PHP, AUD, INR.",
+                        "description": (
+                            "The client's corridor, i.e. their local currency, one "
+                            "of EUR, GBP, PHP, AUD, INR."
+                        ),
+                    },
+                    "invoice_currency": {
+                        "type": "string",
+                        "description": (
+                            "The currency the invoice is issued in, e.g. 'USD'. "
+                            "Defaults to the client's currency. USD removes the "
+                            "receiver-side conversion; another currency does not."
+                        ),
                     },
                     "payment": {
                         "type": "string",
@@ -153,20 +165,28 @@ class FeeTools:
 
     # -- tools ------------------------------------------------------------
 
-    def get_quote(self, amount: str, corridor: str, payment: str) -> dict:
-        key = (str(amount), corridor, payment)
-        if key in self._cache:
-            return self._cache[key]
-
+    def get_quote(
+        self,
+        amount: str,
+        corridor: str,
+        payment: str,
+        invoice_currency: str | None = None,
+    ) -> dict:
         try:
             chosen_corridor = find_corridor(corridor)
         except KeyError:
             return {
                 "error": (
                     f"unknown corridor {corridor!r}. "
-                    f"Known: {[c['invoice_currency'] for c in CORRIDORS]}"
+                    f"Known: {[c['client_currency'] for c in CORRIDORS]}"
                 )
             }
+
+        code = (invoice_currency or "").strip().upper() or chosen_corridor["client_currency"]
+        key = (str(amount), corridor, payment, code)
+        if key in self._cache:
+            return self._cache[key]
+
         try:
             chosen_payment = find_payment(payment)
         except KeyError:
@@ -174,6 +194,15 @@ class FeeTools:
                 "error": (
                     f"unknown payment product {payment!r}. "
                     f"Known: {[p['id'] for p in PAYMENT_OPTIONS]}"
+                )
+            }
+
+        if code not in self._snapshot["rates_to_usd"]:
+            return {
+                "error": (
+                    f"No ECB rate for {code} in the "
+                    f"{self._snapshot['retrieved_date']} snapshot, so an invoice "
+                    "in that currency cannot be costed."
                 )
             }
 
@@ -186,14 +215,15 @@ class FeeTools:
 
         tx = Transaction(
             amount=parsed,
-            invoice_currency=chosen_corridor["invoice_currency"],
-            payer_currency=chosen_corridor["invoice_currency"],
+            invoice_currency=code,
+            payer_currency=code,
             payer_region=chosen_corridor["client_country"],
             receive_currency=RECEIVE_CURRENCY,
             region=RECEIVE_REGION,
             account_type=ACCOUNT_TYPE,
             transaction_type=chosen_payment["transaction_type"],
             payment_method=chosen_payment["payment_method"],
+            client_currency=chosen_corridor["client_currency"],
         )
 
         try:
@@ -251,12 +281,16 @@ class FeeTools:
         return {
             "corridors": [
                 {
-                    "invoice_currency": item["invoice_currency"],
+                    "client_currency": item["client_currency"],
                     "client_country": item["client_country"],
                     "country": item["country"],
                     "currency_name": item["currency_name"],
                 }
                 for item in CORRIDORS
+            ],
+            "invoice_currencies": [
+                item for item in invoice_currencies()
+                if item["code"] in self._snapshot["rates_to_usd"]
             ],
             "payment_products": [
                 {

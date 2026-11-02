@@ -49,12 +49,15 @@ async function boot() {
   }
 
   renderCorridors();
+  renderInvoiceCurrencies();
   renderPaymentOptions();
 
   $("fee-date").textContent = state.config.fee_retrieved_date;
   $("disclaimer").textContent = state.config.disclaimer;
   $("corridor-help").textContent =
-    `You are paid into a ${state.config.receive_region} business account holding ${state.config.receive_currency}.`;
+    `You are paid into a ${state.config.receive_region} business account holding ` +
+    `${state.config.receive_currency}. The client's country sets the cross-border ` +
+    "fee; the invoice currency is yours to choose.";
 
   // The template cannot answer a question, so an enabled box would be a lie:
   // you would type something, press Explain, and get a generic paragraph back.
@@ -67,7 +70,6 @@ async function boot() {
   }
 
   syncAmountPrefix();
-  $("corridor").addEventListener("change", syncAmountPrefix);
   $("quote-form").addEventListener("submit", onSubmit);
   $("explain-button").addEventListener("click", onExplain);
   $("paypal-button").addEventListener("click", onCreateInvoice);
@@ -75,19 +77,60 @@ async function boot() {
   // Prose written for one invoice must not survive into another. If any input
   // that changes the price moves, the explanation is cleared rather than left
   // sitting under a table it no longer describes.
-  $("amount").addEventListener("input", resetExplanation);
-  $("corridor").addEventListener("change", resetExplanation);
-  $("payment-options").addEventListener("change", resetExplanation);
+  $("amount").addEventListener("input", invalidate);
+  $("corridor").addEventListener("change", onCorridorChange);
+  $("invoice-currency").addEventListener("change", onInvoiceCurrencyChange);
+  $("payment-options").addEventListener("change", invalidate);
+}
+
+/* The numbers on screen belong to the last submitted amount, corridor and
+ * currency. Once one of those moves, the page is describing a form that no
+ * longer exists — the hero would show EUR while the picker says USD — so the
+ * stale result is hidden rather than left contradicting its own inputs. */
+function invalidate() {
+  $("results").hidden = true;
+  resetExplanation();
 }
 
 function renderCorridors() {
   const select = $("corridor");
   for (const corridor of state.config.corridors) {
     const option = document.createElement("option");
-    option.value = corridor.invoice_currency;
-    option.textContent = `${corridor.country} — ${corridor.currency_name} (${corridor.invoice_currency})`;
+    option.value = corridor.client_currency;
+    option.textContent =
+      `${corridor.country} — pays in ${corridor.currency_name} (${corridor.client_currency})`;
     select.append(option);
   }
+}
+
+function renderInvoiceCurrencies() {
+  const select = $("invoice-currency");
+  for (const item of state.config.invoice_currencies || []) {
+    const option = document.createElement("option");
+    option.value = item.code;
+    option.textContent = item.code;
+    option.title = item.name;
+    select.append(option);
+  }
+  // The invoice starts in the client's currency, which is the case that needs
+  // no assumption about a conversion. Changing the client follows; picking a
+  // currency explicitly stops the following.
+  select.value = $("corridor").value || state.config.receive_currency || "USD";
+  state.invoiceCurrencyTouched = false;
+}
+
+function onCorridorChange() {
+  if (!state.invoiceCurrencyTouched) {
+    $("invoice-currency").value = $("corridor").value;
+    syncAmountPrefix();
+  }
+  invalidate();
+}
+
+function onInvoiceCurrencyChange() {
+  state.invoiceCurrencyTouched = true;
+  syncAmountPrefix();
+  invalidate();
 }
 
 function renderPaymentOptions() {
@@ -137,7 +180,7 @@ function renderPaymentOptions() {
 }
 
 function syncAmountPrefix() {
-  const currency = $("corridor").value || "EUR";
+  const currency = $("invoice-currency").value || "USD";
   $("amount-prefix").textContent = SYMBOLS[currency] || currency;
 }
 
@@ -161,6 +204,7 @@ async function onSubmit(event) {
       body: JSON.stringify({
         amount: $("amount").value,
         corridor: $("corridor").value,
+        invoice_currency: $("invoice-currency").value,
         payment: selected.value,
       }),
     });
@@ -198,7 +242,7 @@ function hideError() {
 
 function render(data) {
   const current = data.current;
-  const invoiceCurrency = data.corridor.invoice_currency;
+  const invoiceCurrency = data.invoice_currency || data.corridor.client_currency;
   const receiveCurrency = current.net_received_currency;
 
   $("results").hidden = false;
@@ -264,6 +308,7 @@ async function loadProducts() {
       body: JSON.stringify({
         amount: $("amount").value,
         corridor: $("corridor").value,
+        invoice_currency: $("invoice-currency").value,
       }),
     });
     if (!response.ok) throw new Error("no comparison");
@@ -378,7 +423,8 @@ function renderPayPalCard(data) {
 
   state.lastQuote = {
     amount: data.amount,
-    corridor: data.corridor.invoice_currency,
+    corridor: data.corridor.client_currency,
+    invoice_currency: data.invoice_currency,
     payment: data.payment.id,
   };
 }
@@ -460,6 +506,7 @@ async function onExplain() {
       body: JSON.stringify({
         amount: $("amount").value,
         corridor: $("corridor").value,
+        invoice_currency: $("invoice-currency").value,
         payment: selected.value,
         question: $("explain-question").value,
       }),
@@ -636,7 +683,7 @@ function renderSavings(data, receiveCurrency) {
     card.classList.add("neutral");
     $("savings-title").textContent = "No cheaper route";
     $("savings-value").textContent =
-      `You are already invoicing in ${data.corridor.invoice_currency}, so there is no conversion to remove.`;
+      `You are already invoicing in ${data.invoice_currency}, so there is no conversion to remove.`;
     $("savings-caveat").textContent = "";
     return;
   }

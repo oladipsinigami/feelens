@@ -39,7 +39,8 @@ read before the invoice is sent rather than after.
 
 ## What it does
 
-Pick an amount, the client's country, and how the money arrives. FeeLens returns:
+Pick an amount, the invoice currency, the client's country, and how the money
+arrives. FeeLens returns:
 
 - **the net** — what actually lands in the account's own currency
 - **all three products side by side** — the same invoice through every funding
@@ -184,7 +185,7 @@ then reload. A cold free-tier model takes 20–60s and will eat your runtime.
 | time | on screen | say |
 | --- | --- | --- |
 | 0:00–0:15 | README table | "A freelancer invoices a client for €5,000. PayPal keeps 418.39 USD, or 446.81 USD, or 418.88 USD — same money, same client, same day. The difference is which button the client presses. Nobody is told before the invoice is sent." |
-| 0:15–0:30 | app, amount €5,000, corridor EUR, product = invoice paid from PayPal | "FeeLens prices it before you send. Five corridors, three payment products." |
+| 0:15–0:30 | app, amount €5,000, invoice currency EUR, client Germany, product = invoice paid from PayPal | "FeeLens prices it before you send. Five corridors, three payment products, and the invoice can be in a different currency from the client's." |
 | 0:30–0:50 | three product cards, click one | "Same invoice, three ways to pay, side by side. 28.42 USD apart — and the invoice paid from a PayPal account is the *expensive* one, the opposite of what you'd guess. Click a card and the whole page re-prices." |
 | 0:50–1:15 | fee lines | "Every line carries its rule id and a link to the page that states it. 3.49% product, 1.50% international surcharge, 3.00% conversion spread. The lines are in dollars and they add up to the total. The effective rate is 8.00%, not 3.49%." |
 | 1:15–1:40 | scroll to savings + client side | "It suggests a cheaper route — invoice in USD, drop the conversion spread. You keep 167.58 USD more. But your client is now paying a USD invoice from a EUR balance, and that costs them 223.44. The pair of you are 55.86 USD worse off, 670.32 a year." |

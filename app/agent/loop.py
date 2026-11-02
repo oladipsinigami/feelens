@@ -113,7 +113,7 @@ class ExplanationAgent:
         self._cache: dict = {}
         self._cache_size = cache_size
 
-    def _cache_key(self, amount, corridor, payment, question):
+    def _cache_key(self, amount, corridor, payment, question, invoice_currency=None):
         snapshot_date = ""
         try:
             snapshot_date = self._tools.get_fx_snapshot()["snapshot_date"]
@@ -121,7 +121,14 @@ class ExplanationAgent:
             # A cache key without the rate date is still correct within a
             # process: the snapshot only changes on restart.
             pass
-        return (str(amount), corridor, payment, (question or "").strip(), snapshot_date)
+        return (
+            str(amount),
+            corridor,
+            payment,
+            (question or "").strip(),
+            (invoice_currency or "").strip().upper(),
+            snapshot_date,
+        )
 
     @property
     def client(self):
@@ -131,7 +138,7 @@ class ExplanationAgent:
     def model_ready(self) -> bool:
         return bool(self._client is not None and getattr(self._client, "available", False))
 
-    def cached(self, amount, corridor, payment, question=None):
+    def cached(self, amount, corridor, payment, question=None, invoice_currency=None):
         """The validated answer this process already holds, or None.
 
         Exposed because a cached answer costs nothing, so it must not be
@@ -139,7 +146,9 @@ class ExplanationAgent:
         caller asks this *before* taking an allowance; `explain()` checks the
         same cache again and is the authority on what gets served.
         """
-        return self._cache.get(self._cache_key(amount, corridor, payment, question))
+        return self._cache.get(
+            self._cache_key(amount, corridor, payment, question, invoice_currency)
+        )
 
     def explain(
         self,
@@ -147,10 +156,11 @@ class ExplanationAgent:
         corridor: str,
         payment: str,
         question: str | None = None,
+        invoice_currency: str | None = None,
         allow_model: bool = True,
         blocked_note: str = "",
     ) -> Explanation:
-        quote = self._tools.get_quote(str(amount), corridor, payment)
+        quote = self._tools.get_quote(str(amount), corridor, payment, invoice_currency)
         if "error" in quote:
             # The request itself is unpricable. Say so; do not explain nothing.
             return Explanation(
@@ -172,7 +182,7 @@ class ExplanationAgent:
                 note = "no model configured; the question was not answered"
             return self._from_template(quote, note=note)
 
-        key = self._cache_key(amount, corridor, payment, question)
+        key = self._cache_key(amount, corridor, payment, question, invoice_currency)
         remembered = self._cache.get(key)
         if remembered is not None:
             return replace(remembered, cached=True)
@@ -188,7 +198,9 @@ class ExplanationAgent:
 
         start = len(self._tools.calls)
         try:
-            explanation = self._run_model(quote, amount, corridor, payment, question, start)
+            explanation = self._run_model(
+                quote, amount, corridor, payment, question, invoice_currency, start
+            )
         except LLMUnavailable as exc:
             note = f"model unavailable: {exc}"
             if question and question.strip():
@@ -213,10 +225,17 @@ class ExplanationAgent:
 
     # -- model path -------------------------------------------------------
 
-    def _run_model(self, quote, amount, corridor, payment, question, start) -> Explanation:
+    def _run_model(
+        self, quote, amount, corridor, payment, question, invoice_currency, start
+    ) -> Explanation:
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt(amount, corridor, payment, question)},
+            {
+                "role": "user",
+                "content": user_prompt(
+                    amount, corridor, payment, question, invoice_currency
+                ),
+            },
         ]
         seen: list = []
 

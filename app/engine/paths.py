@@ -41,6 +41,23 @@ def rail_benchmark(current) -> RailBenchmark:
     )
 
 
+def payer_spread_pct(fees) -> str | None:
+    """The configured payer conversion spread, formatted for prose.
+
+    Read from the fee config rather than written into a sentence: a rate in
+    prose is a rate that can drift from the rule that computes it. Returns None
+    when the config has no such rule, so the caller omits the number instead of
+    asserting one.
+    """
+    for rule in fees.rules:
+        if (
+            rule.borne_by == "payer"
+            and "payer_currency_differs_from_invoice" in rule.conditions
+        ):
+            return f"{rule.rate_pct:.2f}"
+    return None
+
+
 def compare_paths(
     tx: Transaction,
     fees,
@@ -132,15 +149,40 @@ def compare_paths(
         )
 
     assumptions = list(current.assumptions)
+
+    # The invoice currency is the user's choice and the client's currency is
+    # not, so they can disagree. The net above is the receiver's side only; a
+    # client paying a USD invoice from a EUR balance is charged the payer spread,
+    # which never touches the net. Saying that here keeps the choice from
+    # looking free on the client's side.
+    spread = payer_spread_pct(fees)
+    if tx.client_currency and tx.client_currency != tx.invoice_currency:
+        if spread:
+            assumptions.append(
+                f"This invoice is in {tx.invoice_currency}, while your client "
+                f"holds {tx.client_currency}. The net above assumes they pay it "
+                f"without converting. If they pay from their {tx.client_currency} "
+                f"balance instead, PayPal charges them {spread}% to convert; "
+                "that cost is theirs and is not deducted from your net."
+            )
+        else:
+            assumptions.append(
+                f"This invoice is in {tx.invoice_currency}, while your client "
+                f"holds {tx.client_currency}. The net above assumes they pay it "
+                "without converting."
+            )
+
     if optimized is not current:
         # The saving is real, but it is paid for by moving the conversion to the
         # other side of the transaction. Saying so is the difference between an
         # insight and a sales pitch.
+        spread_text = f"{spread}% " if spread else ""
+        client_holds = tx.client_currency or tx.payer_currency
         assumptions.append(
             f"This cheaper path invoices in {holding} instead of "
             f"{tx.invoice_currency}, so it assumes the client pays in "
-            f"{holding} without converting. If they pay from a "
-            f"{tx.payer_currency} balance instead, PayPal applies a 4.00% "
+            f"{holding} without converting. If they pay from their "
+            f"{client_holds} balance instead, PayPal applies a {spread_text}"
             "conversion spread to them. That cost is priced separately as the "
             "client side of this comparison, and is not deducted from your net."
         )

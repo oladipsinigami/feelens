@@ -84,6 +84,11 @@ class Transaction:
     account_type: str
     transaction_type: str
     payment_method: str
+    # The currency the client is likely to hold, when the invoice is issued in
+    # something else. It does not change the receiver's fee — the payer-side
+    # spread is charged to the client — but it is what lets the engine state the
+    # assumption instead of leaving the conversion unmentioned.
+    client_currency: str = ""
 
     @property
     def is_cross_border(self) -> bool:
