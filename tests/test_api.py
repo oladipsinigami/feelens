@@ -184,3 +184,38 @@ def test_the_page_is_served(client):
 def test_static_assets_are_served(client):
     for path in ("/static/style.css", "/static/app.js"):
         assert client.get(path).status_code == 200, path
+
+
+def test_the_page_versions_its_assets_so_a_deploy_cannot_serve_a_stale_script(client):
+    """A changed file must be a changed URL.
+
+    Without this, a browser can keep executing an old `app.js` against a new API
+    after a deploy. That is not hypothetical: it happened while editing the
+    headline copy, and the page looked wrong for a reason that was not in the
+    code the server was serving.
+    """
+    html = client.get("/").text
+
+    assert "/static/app.js?v=" in html
+    assert "/static/style.css?v=" in html
+    # The page itself has no version to change, so it must be revalidated.
+    assert client.get("/").headers["cache-control"] == "no-cache"
+    assert client.get("/static/app.js").headers["cache-control"] == "no-cache"
+
+
+def test_the_page_explains_the_currency_change_before_the_fee(client):
+    """A 5,000 EUR invoice shows a USD figure above 5,000, and must say why.
+
+    The finding: the headline read "$6,197.67" for a 5,000 GBP invoice with no
+    visible step saying the invoice had become 6,699.45 USD first. The
+    arithmetic was right and the page read as if the app had invented money, so
+    the conversion is now its own step and the sentence names it.
+    """
+    html = client.get("/").text
+    script = client.get("/static/app.js").text
+
+    assert "Converts to" in html
+    assert 'id="fact-convert"' in html
+    assert "fact-convert" in script, "the step must be filled from the payload"
+    assert "invoice converts to" in script, "the sentence must name the conversion"
+

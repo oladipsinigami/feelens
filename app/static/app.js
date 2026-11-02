@@ -209,13 +209,25 @@ function render(data) {
 
   $("net-received").textContent =
     `${SYMBOLS[receiveCurrency] || ""}${decimalText(current.net_received)}`;
-  // "of the 6,699.45 USD you receive" was wrong: that figure is the gross the
-  // invoice converts to, and the number you receive is the headline above it.
-  // Saying otherwise made a correct subtraction look like broken arithmetic.
-  $("headline-sub").textContent =
-    `PayPal keeps ${money(current.total_fees, receiveCurrency)} of the ${money(current.gross_received, receiveCurrency)} the invoice converts to.`;
+  // The sentence has to carry the currency change, because that is the whole
+  // reason a 5,000 invoice shows a number above 5,000: 5,000 EUR becomes
+  // 5,586.00 USD before any fee is taken. Without this, a correct conversion
+  // reads as the app inventing money.
+  if (invoiceCurrency === receiveCurrency) {
+    $("headline-sub").textContent =
+      `PayPal keeps ${money(current.total_fees, receiveCurrency)} of the ${money(current.gross_received, receiveCurrency)} invoice.`;
+  } else {
+    $("headline-sub").textContent =
+      `The ${money(data.amount, invoiceCurrency)} invoice converts to ` +
+      `${money(current.gross_received, receiveCurrency)}. PayPal keeps ` +
+      `${money(current.total_fees, receiveCurrency)} of that.`;
+  }
 
   $("fact-invoice").textContent = money(data.amount, invoiceCurrency);
+  $("fact-convert").textContent = money(current.gross_received, receiveCurrency);
+  // Showing "Converts to 5,586.00 USD" next to "Invoice 5,586.00 USD" would be
+  // noise, so the step only appears when a conversion actually happened.
+  $("fact-convert-wrap").hidden = invoiceCurrency === receiveCurrency;
   $("fact-fees").textContent = money(current.total_fees, receiveCurrency);
   $("fact-rate").textContent = `${current.effective_rate_pct}%`;
 
