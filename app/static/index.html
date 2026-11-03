@@ -3,17 +3,60 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
   <title>FeeLens — what PayPal takes before you get paid</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+
   <link rel="stylesheet" href="/static/style.css" />
+
+  <!-- Applied before first paint, so a saved theme does not flash the other one
+       for a frame. The toggle itself lives in app.js; this only restores the
+       choice, and silently does nothing when storage is unavailable. -->
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("feelens-theme");
+        if (saved === "light" || saved === "dark") {
+          document.documentElement.dataset.theme = saved;
+        }
+      } catch (error) {}
+    })();
+  </script>
 </head>
 <body>
   <header class="masthead">
-    <div class="wrap">
+    <div class="wrap masthead-inner">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true"></span>
-        <span class="brand-name">FeeLens</span>
+        <div class="brand-text">
+          <span class="brand-name">FeeLens</span>
+          <p class="tagline">What PayPal takes before the money reaches you.</p>
+        </div>
       </div>
-      <p class="tagline">What PayPal takes before the money reaches you.</p>
+
+      <button
+        type="button"
+        class="theme-toggle"
+        id="theme-toggle"
+        aria-label="Switch to dark theme"
+        title="Switch to dark theme"
+      >
+        <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+        <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+        </svg>
+      </button>
     </div>
   </header>
 

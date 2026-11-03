@@ -28,8 +28,10 @@ function decimalText(value) {
   return `${negative ? "-" : ""}${groupDigits(whole)}.${fraction.padEnd(2, "0").slice(0, 2)}`;
 }
 
+/* A non-breaking space holds the figure to its currency, so a sentence never
+ * wraps between "418.39" and "USD" and leaves the unit stranded. */
 function money(value, currency) {
-  return `${decimalText(value)} ${currency}`;
+  return `${decimalText(value)}\u00A0${currency}`;
 }
 
 function isZero(value) {
@@ -765,4 +767,61 @@ function renderList(list, items) {
   }
 }
 
+/* --- theme -------------------------------------------------------------- */
+
+/* Cream and gold, or black and gold. The choice is the reader's and it
+   persists; with no choice, the operating system's preference wins. The CSS
+   already resolves both palettes, so this only has to keep the attribute and
+   the button's label honest. */
+
+const THEME_KEY = "feelens-theme";
+
+function systemTheme() {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const button = $("theme-toggle");
+  if (!button) return;
+  const next = theme === "dark" ? "light" : "dark";
+  button.setAttribute("aria-label", `Switch to ${next} theme`);
+  button.title = `Switch to ${next} theme`;
+}
+
+function initTheme() {
+  let saved = null;
+  try {
+    saved = localStorage.getItem(THEME_KEY);
+  } catch (error) {
+    // Private mode can refuse storage; the system preference still works.
+  }
+  applyTheme(saved === "light" || saved === "dark" ? saved : systemTheme());
+
+  const button = $("theme-toggle");
+  if (!button) return;
+
+  button.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    applyTheme(next);
+    try {
+      localStorage.setItem(THEME_KEY, next);
+    } catch (error) {
+      // The switch still works for this visit.
+    }
+  });
+
+  // Follow the system if the reader has never made an explicit choice.
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
+    let chosen = null;
+    try {
+      chosen = localStorage.getItem(THEME_KEY);
+    } catch (error) {}
+    if (chosen !== "light" && chosen !== "dark") {
+      applyTheme(event.matches ? "dark" : "light");
+    }
+  });
+}
+
+initTheme();
 boot();
