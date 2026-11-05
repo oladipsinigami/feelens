@@ -139,8 +139,8 @@ reports `model_configured: true` and a lower `fx_age_days` after each refresh:
   "status": "ok",
   "version": "0.2.0",
   "fee_retrieved_date": "2026-10-26",
-  "fx_snapshot_date": "2026-10-30",
-  "fx_age_days": 2,
+  "fx_snapshot_date": "2026-11-05",
+  "fx_age_days": 1,
   "fx_stale": false,
   "model_configured": false,
   "tier": "modeled"
@@ -200,10 +200,10 @@ red X on a public repo reads as "their tests fail", and this is not a test.
 The snapshot is dated and the app is designed to admit it, but a submission that
 promises to stay live until 2026-12-15 cannot carry a staleness note on every
 quote for six weeks. `.github/workflows/refresh-fx.yml` therefore refreshes the
-snapshot **weekly**, on Monday 05:30 UTC, and commits it:
+snapshot **every weekday**, at 05:30 UTC, and commits it:
 
 ```bash
-gh workflow run refresh-fx    # or wait for Monday
+gh workflow run refresh-fx    # or wait for a weekday
 gh run watch
 ```
 
@@ -235,7 +235,13 @@ Three things the workflow will not do, and why:
   movement is visible rather than silent.
 
 After four calendar days without a refresh the engine prints a staleness note on
-every quote and `/api/health` reports `fx_stale: true`. That threshold is the
-reason the job is weekly rather than monthly: it keeps the live page inside the
-window it claims to be inside.
+every quote and `/api/health` reports `fx_stale: true`.
+
+That threshold is why the job runs **five times a week, not once**. A weekly
+cadence cannot satisfy a four-day rule: the Monday run correctly fetches Friday's
+rate, then holds it for seven days, so from Wednesday onward the live page
+carried a staleness warning. The site was honest and stale six days out of seven.
+Daily runs put the worst case at three days — Monday morning still reads Friday's
+rate, which is the freshest thing that exists after a weekend — so the page is
+never outside the window it claims to be inside.
 

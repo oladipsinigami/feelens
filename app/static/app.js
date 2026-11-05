@@ -29,7 +29,7 @@ function decimalText(value) {
 }
 
 /* A non-breaking space holds the figure to its currency, so a sentence never
- * wraps between "418.39" and "USD" and leaves the unit stranded. */
+ * wraps between "448.89" and "USD" and leaves the unit stranded. */
 function money(value, currency) {
   return `${decimalText(value)}\u00A0${currency}`;
 }

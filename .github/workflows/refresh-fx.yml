@@ -25,12 +25,23 @@ name: refresh-fx
 # than hidden, and the README quotes its figures against a named date for the
 # same reason.
 #
-# Monday 05:30 UTC: after Friday's ECB publication, before the European working
-# day, and never in the middle of a demo.
+# Weekdays at 05:30 UTC: after the previous day's ECB publication, before the
+# European working day, and never in the middle of a demo.
+#
+# It runs five times a week rather than once because a weekly cadence cannot
+# satisfy the engine's four-day staleness rule. On the old Monday-only schedule
+# the job fetched Friday's rate, which was correct, but then held it for seven
+# days — so from Wednesday onward every quote on the page carried a staleness
+# warning, and the site was honest-but-wrong six days out of seven. Daily runs
+# keep the worst case at three days: Monday morning still reads Friday's rate,
+# which is the freshest thing that exists over a weekend.
+#
+# A TARGET holiday is a no-op: the script only writes a snapshot that is newer
+# than the one on disk, so a day without a publication changes nothing.
 
 on:
   schedule:
-    - cron: "30 5 * * 1"
+    - cron: "30 5 * * 1-5"
   workflow_dispatch:
 
 permissions:
