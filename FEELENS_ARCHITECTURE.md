@@ -1,5 +1,17 @@
 # FeeLens: Architecture (v3)
 
+> **SUPERSEDED — kept for history, not for reference.** This is the planning
+> document the project was built from. The shipped system is described in
+> `README.md` (what it does), `DEPLOY.md` (how it runs) and `SUBMISSION.md` (what
+> was submitted). Two things below are no longer true:
+>
+> - **APIMatic was dropped.** There is no account-free route to it, so the build
+>   never used it. Any "Use APIMatic" line in this file is stale.
+> - **The invoice currency is now independent of the client's country**, which
+>   this document does not anticipate.
+>
+> Where this file and the README disagree, the README is what runs.
+
 **AI pre-payment cost auditor for PayPal** | PayPal AI Hackathon | Deadline: Nov 12, 2026, 12:00 pm Pacific = **9:00 pm WAT** (submit by **Nov 11**)
 Hackathon inspiration category: **Business Solutions** ("an invoicing tool built for freelancers who bill in multiple currencies") with an agentic action step.
 

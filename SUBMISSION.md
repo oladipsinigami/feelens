@@ -210,6 +210,7 @@ and the page says so.
 - [ ] **Render API key revoked** — still live in the Render account; revoke it
       (Account Settings → API Keys). Nothing in the deployment depends on it.
 - [ ] OpenRouter key rotated after the hackathon
-- [ ] `FEELENS_ARCHITECTURE.md` and `FEELENS_BUILD_PROMPT.md` resolved — they are
-      committed, unlinked from the README, and still contain "Use APIMatic" lines
-      that are no longer true. Delete or mark superseded before the repo is judged.
+- [x] `FEELENS_ARCHITECTURE.md` and `FEELENS_BUILD_PROMPT.md` resolved — both now
+      open with a **SUPERSEDED** banner naming the dropped APIMatic claim and
+      pointing at README/DEPLOY/SUBMISSION. Kept rather than deleted so the
+      planning history stays readable; neither is linked from the README.

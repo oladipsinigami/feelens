@@ -1,5 +1,11 @@
 # FeeLens: Build-Starter Prompt (v3)
 
+> **SUPERSEDED — kept for history, not for reference.** This was the prompt used
+> to start the build, and it is not the prompt that shipped. **APIMatic was
+> dropped** (no account-free route existed), so the plugin instruction below is
+> stale, as is any "Use APIMatic" line further down. The system that runs is
+> described in `README.md`, `DEPLOY.md` and `SUBMISSION.md`.
+
 Paste the prompt below as the **first message** in a fresh chat with the AI you will build with. Attach in the same message:
 - `FEELENS_ARCHITECTURE.md`
 - The PayPal OpenAPI files: `checkout_orders_v2.json`, `invoicing_v2.json`, `currency_exchange_v2.json` (all listed at `https://docs.paypal.ai/llms.txt` under `https://docs.paypal.ai/api-reference/`)
