@@ -963,6 +963,25 @@ select:focus-visible {
 
 .foot p { margin: 0; }
 
+/* The code has to be findable from the page, not only from the Devpost form.
+   A judge who lands on the live demo and wants the engine should not have to
+   guess the repository. */
+.foot-links {
+  margin-top: 0.6rem;
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.foot-links a {
+  color: var(--gold-strong);
+  text-decoration: none;
+  border-bottom: 1px solid var(--gold-line);
+  padding-bottom: 1px;
+}
+
+.foot-links a:hover { border-bottom-color: var(--gold-strong); }
+
 @media (max-width: 560px) {
   .card { padding: 1.2rem; }
   .breakdown th.src, .breakdown td.src { display: none; }

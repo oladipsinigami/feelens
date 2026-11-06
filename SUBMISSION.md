@@ -6,6 +6,20 @@ memory. If a number changes, re-run `/api/quote` before pasting.
 
 ---
 
+## Links (paste into the form's URL fields)
+
+| field | value |
+| --- | --- |
+| Live demo / "Try it out" | https://feelens-su23.onrender.com |
+| Source code / GitHub | https://github.com/oladipsinigami/feelens |
+| Demo video | (YouTube, public) |
+| Built with PayPal | PayPal REST API — Invoicing v2, sandbox |
+
+The repository is also linked from the live page's footer, so a judge who starts
+at the demo can reach the code without going back to Devpost.
+
+---
+
 ## Project name
 
 FeeLens
