@@ -203,10 +203,10 @@ and the page says so.
 
 - [ ] Devpost form fields pasted and proofread
 - [ ] Video uploaded to YouTube, **public**, under 3:00
-- [ ] Repo public with MIT detected in the About section — **done**
-- [ ] Repo homepage links the live demo — **done** (`https://feelens-su23.onrender.com`)
-- [ ] Live app awake and warm when judging starts — **done**: `.github/workflows/keepalive.yml` pings `/api/health` every 5 min, 06:00–23:55 UTC
-- [ ] Exchange rate inside its four-day window through 2026-12-15 — **done**: `.github/workflows/refresh-fx.yml` refreshes the snapshot every weekday at 05:30 UTC
+- [x] Repo public with MIT detected in the About section
+- [x] Repo homepage links the live demo — `https://feelens-su23.onrender.com`
+- [x] Live app awake and warm when judging starts — `.github/workflows/keepalive.yml` pings `/api/health` every 5 min, 06:00–23:55 UTC
+- [x] Exchange rate inside its four-day window through 2026-12-15 — `.github/workflows/refresh-fx.yml` refreshes the snapshot every weekday at 05:30 UTC
 - [ ] **Render API key revoked** — still live in the Render account; revoke it
       (Account Settings → API Keys). Nothing in the deployment depends on it.
 - [ ] OpenRouter key rotated after the hackathon
