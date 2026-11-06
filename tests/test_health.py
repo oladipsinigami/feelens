@@ -64,6 +64,20 @@ def test_health_says_when_a_model_is_configured():
     assert _client(with_model=True).get("/api/health").json()["model_configured"] is True
 
 
+def test_health_names_the_models_it_would_use():
+    """A retired fallback id is invisible until the primary is rate-limited.
+
+    The live site once advertised `model_configured: true` while its fallback
+    returned 404 on every call, so a rate-limited primary meant a template every
+    time. Naming both ids here makes that readable from a single request.
+    """
+    body = _client(with_model=True).get("/api/health").json()
+
+    assert body["model_primary"].endswith(":free")
+    assert body["model_fallback"].endswith(":free")
+    assert body["model_primary"] != body["model_fallback"]
+
+
 def test_health_does_not_leak_the_key_or_the_fee_table():
     body = _client(with_model=True).get("/api/health").json()
 

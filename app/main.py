@@ -76,9 +76,16 @@ DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
 # The fallback matters more than it looks. On a free tier a rate-limited primary
 # is the normal case, and a fallback that does not exist is worse than none: the
 # second call 404s, LLMUnavailable is raised, and every explanation quietly
-# becomes the template while /api/health still says a model is configured. This
-# one is checked against OpenRouter's public model list by scripts/check_models.py.
-DEFAULT_FALLBACK_MODEL = "poolside/laguna-s-2.1:free"
+# becomes the template while /api/health still says a model is configured. That
+# is exactly what happened — `poolside/laguna-s-2.1:free` was never in
+# OpenRouter's list, so the fallback was decorative. A recorded demo caught it:
+# the primary returned 503, the fallback 404'd, and the page showed the template
+# along with its own error trace.
+#
+# Both ids are checked against OpenRouter's public model list by
+# scripts/check_models.py, which now runs in CI so a retired model cannot ship
+# silently again.
+DEFAULT_FALLBACK_MODEL = "nvidia/nemotron-3.5-lightning:free"
 GUARDRAIL_NOTE = (
     "The model may only restate figures returned by a tool. Every number in its "
     "answer is checked against the tool output, and an answer that fails is "
@@ -220,12 +227,22 @@ def _parse_amount(raw: str) -> Decimal:
     return amount
 
 
-def _build_agent(fees, snapshot, budget=None) -> ExplanationAgent:
-    key = (os.environ.get("OPENROUTER_API_KEY") or "").strip()
+def _configured_models() -> tuple[str, str]:
+    """The ids the app would use, env first then the code defaults.
+
+    Shared by the agent builder and `/api/health` so the health response cannot
+    describe a different model from the one actually running.
+    """
     model = (os.environ.get("LLM_MODEL") or "").strip() or DEFAULT_MODEL
     fallback = (
-        (os.environ.get("LLM_FALLBACK_MODEL") or "").strip() or DEFAULT_FALLBACK_MODEL
-    )
+        os.environ.get("LLM_FALLBACK_MODEL") or ""
+    ).strip() or DEFAULT_FALLBACK_MODEL
+    return model, fallback
+
+
+def _build_agent(fees, snapshot, budget=None) -> ExplanationAgent:
+    key = (os.environ.get("OPENROUTER_API_KEY") or "").strip()
+    model, fallback = _configured_models()
     client = (
         OpenRouterClient(
             key,
@@ -456,6 +473,7 @@ def create_app(
         missing model key, so both are reported rather than discovered later.
         """
         age = fx_snapshot_age_days(snapshot)
+        model, fallback_model = _configured_models()
         return {
             "status": "ok",
             "version": app.version,
@@ -464,6 +482,12 @@ def create_app(
             "fx_age_days": age,
             "fx_stale": age > STALENESS_THRESHOLD_DAYS,
             "model_configured": agent.model_ready,
+            # Named, not just counted. A model id that OpenRouter has retired
+            # fails only when the primary is rate-limited, and then it fails
+            # silently into the template — which is how a dead fallback shipped
+            # once. Printing the ids makes that visible without reading logs.
+            "model_primary": model,
+            "model_fallback": fallback_model,
             "model_budget": budget.snapshot(),
             "paypal_configured": paypal is not None,
             "paypal_environment": "sandbox" if paypal is not None else "",

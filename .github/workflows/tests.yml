@@ -30,6 +30,13 @@ jobs:
       - name: Test
         run: python -m pytest -q
 
+      # A model id that OpenRouter does not list fails only when the primary is
+      # rate-limited, and then it fails silently into the template. That is how
+      # a dead fallback shipped once. This step needs no key: the model list is
+      # public, so it is cheap enough to run on every push.
+      - name: Both configured models exist, are free, and can call tools
+        run: python scripts/check_models.py
+
       - name: Boot without a model key and check the endpoints a judge will touch
         run: |
           python -m uvicorn app.main:app --host 127.0.0.1 --port 8098 &
