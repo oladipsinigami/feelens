@@ -207,9 +207,16 @@ def test_a_retired_model_in_the_chain_is_skipped_and_the_next_one_answers():
     assert seen == ["primary/model:free", "retired/model:free", "fallback/model:free"]
 
 
-def test_a_retired_model_is_not_retried_on_the_next_request():
-    """A 404 cannot start working. Asking again wastes a request and 0.8s."""
+def test_a_retired_model_is_not_retried_and_a_failing_one_is_only_rested():
+    """A 404 is permanent, a 503 is not. They get different treatment.
+
+    Retrying a retired id wastes a request on every call for the life of the
+    process. Retrying a saturated one immediately wastes it too, but only until
+    it recovers — so it is rested for a window rather than dropped, and the
+    clock here is injected to prove both halves.
+    """
     seen = []
+    now = [0.0]
 
     def handler(request):
         model = json.loads(request.content)["model"]
@@ -226,9 +233,45 @@ def test_a_retired_model_is_not_retried_on_the_next_request():
         ["retired/model:free", "fallback/model:free"],
         transport=httpx.MockTransport(handler),
         sleep=lambda seconds: None,
+        clock=lambda: now[0],
     )
     llm.chat(MESSAGES)
+    assert seen == ["primary/model:free", "retired/model:free", "fallback/model:free"]
+
+    # Immediately after: the primary is rested, the retired id is gone for good.
     seen.clear()
     llm.chat(MESSAGES)
+    assert seen == ["fallback/model:free"]
 
+    # Past the cooldown: the primary is worth another try. The retired id never is.
+    now[0] = 61.0
+    seen.clear()
+    llm.chat(MESSAGES)
     assert seen == ["primary/model:free", "fallback/model:free"]
+
+
+def test_a_cooldown_never_refuses_a_request_when_every_model_is_resting():
+    """A preference, not a refusal. If all candidates are cooling down, ask anyway."""
+    seen = []
+
+    def handler(request):
+        seen.append(json.loads(request.content)["model"])
+        return completion("answered")
+
+    llm = OpenRouterClient(
+        "test-key",
+        "primary/model:free",
+        ["fallback/model:free"],
+        transport=httpx.MockTransport(handler),
+        sleep=lambda seconds: None,
+        clock=lambda: 0.0,
+        cooldown=60.0,
+    )
+    llm._cooldown_until = {
+        "primary/model:free": 10_000.0,
+        "fallback/model:free": 10_000.0,
+    }
+    result = llm.chat(MESSAGES)
+
+    assert result.content == "answered"
+    assert seen == ["primary/model:free"]

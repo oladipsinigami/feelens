@@ -70,6 +70,8 @@ class OpenRouterClient:
         max_tokens: int = 2000,
         sleep=time.sleep,
         on_request=None,
+        clock=time.monotonic,
+        cooldown: float = 60.0,
     ):
         self._api_key = (api_key or "").strip()
         # A chain, not a single substitute. A model id can be retired by the
@@ -86,6 +88,15 @@ class OpenRouterClient:
         )
         self._models = [m for m in [model, *fallbacks] if m]
         self._dead: set[str] = set()
+        # A model that just timed out or 503'd is usually still failing a second
+        # later. One explanation is several requests, so without this the same
+        # dead primary is paid for again on every step of the same answer — which
+        # is how an explanation measured 99 seconds while the working model was
+        # answering in a few. Cooled-down models are skipped only while another
+        # candidate remains, so this can delay a request but never refuse one.
+        self._cooldown_until: dict[str, float] = {}
+        self._cooldown = cooldown
+        self._clock = clock
         self._base_url = base_url.rstrip("/")
         self._transport = transport
         self._timeout = timeout
@@ -110,14 +121,17 @@ class OpenRouterClient:
         if not self.available:
             raise LLMUnavailable("no OpenRouter key or model configured")
 
+        now = self._clock()
+        # Skip what is known broken, but never skip everything: a cooldown is a
+        # preference, not a refusal, so if every candidate is cooling down the
+        # request still goes out and the provider gets the last word.
+        candidates = [
+            m for m in self._models
+            if m not in self._dead and self._cooldown_until.get(m, 0.0) <= now
+        ] or [m for m in self._models if m not in self._dead]
+
         failures = []
-        for index, model in enumerate(self._models):
-            # A 404 means the id does not exist. Retrying it on the next request
-            # cannot start working, so it is remembered and skipped — otherwise a
-            # retired id in the environment burns a request and 0.8s on every
-            # fallback for the life of the process.
-            if model in self._dead:
-                continue
+        for index, model in enumerate(candidates):
             if index:
                 # A free tier that just 429'd is usually still 429ing a second
                 # later. A short pause is cheaper than burning both models.
@@ -125,8 +139,13 @@ class OpenRouterClient:
             try:
                 return self._call(model, messages, tools)
             except LLMUnavailable as exc:
+                # A 404 means the id does not exist. Retrying it cannot start
+                # working, so it is remembered for the life of the process.
                 if "HTTP 404" in str(exc):
                     self._dead.add(model)
+                else:
+                    # Everything else may be transient, so it is only rested.
+                    self._cooldown_until[model] = self._clock() + self._cooldown
                 failures.append(f"{model}: {exc}")
 
         raise LLMUnavailable("; ".join(failures) or "every configured model is retired")
