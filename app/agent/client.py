@@ -62,7 +62,7 @@ class OpenRouterClient:
         self,
         api_key: str,
         model: str,
-        fallback_model: str | None = None,
+        fallback_model: str | list[str] | None = None,
         base_url: str = DEFAULT_BASE_URL,
         transport=None,
         timeout: float = 30.0,
@@ -72,7 +72,20 @@ class OpenRouterClient:
         on_request=None,
     ):
         self._api_key = (api_key or "").strip()
-        self._models = [m for m in (model, fallback_model) if m]
+        # A chain, not a single substitute. A model id can be retired by the
+        # provider at any time, and the deployment's environment can keep
+        # advertising the retired one long after the code has moved on — which is
+        # exactly what happened: the service's `LLM_FALLBACK_MODEL` still named a
+        # model that returns 404, so every rate-limited primary became a
+        # template. Carrying more than one candidate means a stale environment
+        # costs one wasted request instead of the whole feature.
+        fallbacks = (
+            [fallback_model]
+            if isinstance(fallback_model, str)
+            else list(fallback_model or [])
+        )
+        self._models = [m for m in [model, *fallbacks] if m]
+        self._dead: set[str] = set()
         self._base_url = base_url.rstrip("/")
         self._transport = transport
         self._timeout = timeout
@@ -99,6 +112,12 @@ class OpenRouterClient:
 
         failures = []
         for index, model in enumerate(self._models):
+            # A 404 means the id does not exist. Retrying it on the next request
+            # cannot start working, so it is remembered and skipped — otherwise a
+            # retired id in the environment burns a request and 0.8s on every
+            # fallback for the life of the process.
+            if model in self._dead:
+                continue
             if index:
                 # A free tier that just 429'd is usually still 429ing a second
                 # later. A short pause is cheaper than burning both models.
@@ -106,9 +125,11 @@ class OpenRouterClient:
             try:
                 return self._call(model, messages, tools)
             except LLMUnavailable as exc:
+                if "HTTP 404" in str(exc):
+                    self._dead.add(model)
                 failures.append(f"{model}: {exc}")
 
-        raise LLMUnavailable("; ".join(failures))
+        raise LLMUnavailable("; ".join(failures) or "every configured model is retired")
 
     def _call(self, model: str, messages: list, tools: list | None) -> ChatResult:
         body = {

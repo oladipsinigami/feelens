@@ -74,8 +74,9 @@ def test_health_names_the_models_it_would_use():
     body = _client(with_model=True).get("/api/health").json()
 
     assert body["model_primary"].endswith(":free")
-    assert body["model_fallback"].endswith(":free")
-    assert body["model_primary"] != body["model_fallback"]
+    assert body["model_fallbacks"]
+    assert all(m.endswith(":free") for m in body["model_fallbacks"])
+    assert body["model_primary"] not in body["model_fallbacks"]
 
 
 def test_health_does_not_leak_the_key_or_the_fee_table():

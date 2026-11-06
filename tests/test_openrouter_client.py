@@ -173,3 +173,62 @@ def test_when_both_models_fail_the_error_names_both():
     message = str(caught.value)
     assert "primary/model:free" in message
     assert "fallback/model:free" in message
+
+
+def test_a_retired_model_in_the_chain_is_skipped_and_the_next_one_answers():
+    """The deployment's environment outlived the model it named.
+
+    Render kept `LLM_FALLBACK_MODEL` pointing at an id OpenRouter had retired, so
+    the primary's 503 turned into the fallback's 404 and the page served the
+    template. The chain exists so a stale environment costs one request instead
+    of the feature.
+    """
+    seen = []
+
+    def handler(request):
+        model = json.loads(request.content)["model"]
+        seen.append(model)
+        if model == "primary/model:free":
+            return httpx.Response(503, json={"error": "saturated"})
+        if model == "retired/model:free":
+            return httpx.Response(404, json={"error": "no such model"})
+        return completion("from the third model")
+
+    llm = OpenRouterClient(
+        "test-key",
+        "primary/model:free",
+        ["retired/model:free", "fallback/model:free"],
+        transport=httpx.MockTransport(handler),
+        sleep=lambda seconds: None,
+    )
+    result = llm.chat(MESSAGES)
+
+    assert result.content == "from the third model"
+    assert seen == ["primary/model:free", "retired/model:free", "fallback/model:free"]
+
+
+def test_a_retired_model_is_not_retried_on_the_next_request():
+    """A 404 cannot start working. Asking again wastes a request and 0.8s."""
+    seen = []
+
+    def handler(request):
+        model = json.loads(request.content)["model"]
+        seen.append(model)
+        if model == "primary/model:free":
+            return httpx.Response(503, json={"error": "saturated"})
+        if model == "retired/model:free":
+            return httpx.Response(404, json={"error": "no such model"})
+        return completion("ok")
+
+    llm = OpenRouterClient(
+        "test-key",
+        "primary/model:free",
+        ["retired/model:free", "fallback/model:free"],
+        transport=httpx.MockTransport(handler),
+        sleep=lambda seconds: None,
+    )
+    llm.chat(MESSAGES)
+    seen.clear()
+    llm.chat(MESSAGES)
+
+    assert seen == ["primary/model:free", "fallback/model:free"]

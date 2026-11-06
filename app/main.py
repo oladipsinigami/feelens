@@ -227,27 +227,34 @@ def _parse_amount(raw: str) -> Decimal:
     return amount
 
 
-def _configured_models() -> tuple[str, str]:
+def _configured_models() -> tuple[str, list[str]]:
     """The ids the app would use, env first then the code defaults.
 
-    Shared by the agent builder and `/api/health` so the health response cannot
-    describe a different model from the one actually running.
+    The fallback is a *chain*. The environment is the deployment's memory and it
+    can outlive the code: Render kept `poolside/laguna-s-2.1:free` long after
+    OpenRouter retired it, and because the env value beat the default, the fix in
+    the code never reached production. Appending the known-good default means a
+    stale environment costs one wasted request rather than the whole feature.
     """
     model = (os.environ.get("LLM_MODEL") or "").strip() or DEFAULT_MODEL
-    fallback = (
-        os.environ.get("LLM_FALLBACK_MODEL") or ""
-    ).strip() or DEFAULT_FALLBACK_MODEL
-    return model, fallback
+    chain: list[str] = []
+    for candidate in (
+        (os.environ.get("LLM_FALLBACK_MODEL") or "").strip(),
+        DEFAULT_FALLBACK_MODEL,
+    ):
+        if candidate and candidate not in chain and candidate != model:
+            chain.append(candidate)
+    return model, chain
 
 
 def _build_agent(fees, snapshot, budget=None) -> ExplanationAgent:
     key = (os.environ.get("OPENROUTER_API_KEY") or "").strip()
-    model, fallback = _configured_models()
+    model, fallbacks = _configured_models()
     client = (
         OpenRouterClient(
             key,
             model,
-            fallback,
+            fallbacks,
             on_request=budget.record if budget is not None else None,
         )
         if key
@@ -473,7 +480,7 @@ def create_app(
         missing model key, so both are reported rather than discovered later.
         """
         age = fx_snapshot_age_days(snapshot)
-        model, fallback_model = _configured_models()
+        model, fallbacks = _configured_models()
         return {
             "status": "ok",
             "version": app.version,
@@ -487,7 +494,7 @@ def create_app(
             # silently into the template — which is how a dead fallback shipped
             # once. Printing the ids makes that visible without reading logs.
             "model_primary": model,
-            "model_fallback": fallback_model,
+            "model_fallbacks": fallbacks,
             "model_budget": budget.snapshot(),
             "paypal_configured": paypal is not None,
             "paypal_environment": "sandbox" if paypal is not None else "",
