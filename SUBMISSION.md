@@ -20,6 +20,30 @@ at the demo can reach the code without going back to Devpost.
 
 ---
 
+## Project media (image gallery)
+
+Seven screenshots of the live site, taken 2026-11-06 at 3000x2000 (exactly 3:2,
+the ratio Devpost asks for). Nothing is a mockup: each one is the deployed app
+after pricing a real 5,000 EUR invoice to a German client.
+
+Upload in this order — the first image is the thumbnail.
+
+| # | file | what it shows |
+| --- | --- | --- |
+| 1 | `feelens-01-result.png` | Net received, the three payment doors, and the 28.55 USD gap between them |
+| 2 | `feelens-02-breakdown.png` | "Where it goes": every fee line with its rule id, source and FX note |
+| 3 | `feelens-03-savings.png` | The 1% rail benchmark, the cheaper route, and who pays for it |
+| 4 | `feelens-04-invoice.png` | A real sandbox invoice (INV2-…, DRAFT, 5,000.00 EUR) read back from PayPal |
+| 5 | `feelens-05-explain.png` | The AI answer with its caveats and the "13 figures traced, 4 rules cited" line |
+| 6 | `feelens-06-light-top.png` | The light theme: cream stock and gold, the form before submitting |
+| 7 | `feelens-07-light-result.png` | The light theme on the result, same numbers as image 1 |
+
+Files live outside the repository in `Downloads\FeeLens-devpost-images\` so the
+repo stays free of multi-megabyte PNGs. Each is 0.19-0.31 MB, well under the
+5 MB limit.
+
+---
+
 ## Project name
 
 FeeLens
